@@ -39,11 +39,7 @@ struct ToolAvailability {
         ) || fileManager.fileExists(
             atPath: codexRoot.appendingPathComponent("sessions").path
         )
-        let codexAppExists = applicationExists(
-            named: "Codex.app", fileManager: fileManager
-        ) || applicationExists(
-            named: "ChatGPT.app", fileManager: fileManager
-        )
+        let codexAppExists = applicationExists(named: "Codex.app", fileManager: fileManager)
 
         let deepSeekHome = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".dsh")
         let deepSeekFilesExist = fileManager.fileExists(atPath: deepSeekHome.path)

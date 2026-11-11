@@ -52,7 +52,7 @@ final class HUDController {
         NSSize(width: Self.panelWidth, height: expandedHeight)
     }
 
-    init() {
+    init(availableTools: ToolAvailability) {
         let root = MovableHUDView(frame: NSRect(origin: .zero, size: Self.collapsedSize))
         root.material = .hudWindow
         root.blendingMode = .behindWindow
@@ -255,6 +255,7 @@ final class HUDController {
         isExpanded = defaults.bool(forKey: "hud.expanded")
         enabled = defaults.object(forKey: "hud.enabled") as? Bool ?? true
         anchor = loadAnchor()
+        setToolAvailability(availableTools)
         updateLayout()
         if enabled { panel.orderFrontRegardless() }
 
@@ -308,7 +309,7 @@ final class HUDController {
         let visibleMetricCount = (availability.codex ? 1 : 0) + (availability.deepSeek ? 1 : 0)
         expandedMetricsHeightConstraint.constant = CGFloat(visibleMetricCount * 76)
             + CGFloat(max(0, visibleMetricCount - 1) * 8)
-        expandedHeight = 76 + expandedMetricsHeightConstraint.constant
+        expandedHeight = max(Self.collapsedHeight, 76 + expandedMetricsHeightConstraint.constant)
         panel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
 
         if !availability.hasAny {

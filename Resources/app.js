@@ -283,7 +283,10 @@
     byId("lowerGrid").hidden = !hasAny;
     byId("lowerGrid").classList.toggle("single-tool", codex !== deepseek);
     byId("noToolsEmpty").hidden = hasAny;
+    byId("refreshButton").hidden = !hasAny;
+    byId("autoRefreshSetting").hidden = !hasAny;
     byId("hudTopControl").hidden = !hasAny;
+    byId("settingCard").hidden = !hasAny;
     byId("hudSettingsRow").hidden = !hasAny;
     byId("overviewDescription").textContent = codex && deepseek
       ? "Codex 与 DeepSeek 的官方账户状态和本机 Token 统计"

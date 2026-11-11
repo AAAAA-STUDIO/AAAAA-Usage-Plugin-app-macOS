@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
-        hud = HUDController()
+        hud = HUDController(availableTools: availableTools)
         hud.setUsageAlertThreshold(usageAlertThresholdPercent)
         hud.setDeepSeekBalanceAlert(
             threshold: deepSeekBalanceAlertThreshold,
@@ -65,14 +65,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             self.window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
-        hud.setToolAvailability(availableTools)
         let page = Bundle.main.resourceURL!.appendingPathComponent("Resources/index.html")
         webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
 
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+        if availableTools.hasAny {
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.refresh() }
+            }
+            refresh()
         }
-        refresh()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
@@ -92,19 +93,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         case "refresh":
             refresh()
         case "loginDeepSeek":
+            guard availableTools.deepSeek else { return }
             startDeepSeekLogin()
         case "logoutDeepSeek":
+            guard availableTools.deepSeek else { return }
             startDeepSeekLogout()
         case "toggleHUD":
+            guard availableTools.hasAny else { return }
             hud.setEnabled((body["enabled"] as? Bool) ?? false)
             pushHUDState()
         case "setUsageAlertThreshold":
+            guard availableTools.codex else { return }
             guard let number = body["value"] as? NSNumber else { return }
             let threshold = min(100, max(0, number.intValue))
             UserDefaults.standard.set(threshold, forKey: usageAlertThresholdKey)
             hud.setUsageAlertThreshold(threshold)
             pushHUDState()
         case "setDeepSeekBalanceAlert":
+            guard availableTools.deepSeek else { return }
             guard let number = body["threshold"] as? NSNumber else { return }
             let threshold = max(0, number.doubleValue)
             let currency = (body["currency"] as? String) == "USD" ? "USD" : "CNY"
@@ -113,8 +119,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             hud.setDeepSeekBalanceAlert(threshold: threshold, currency: currency)
             pushHUDState()
         case "openUsage":
+            guard availableTools.deepSeek else { return }
             NSWorkspace.shared.open(URL(string: "https://platform.deepseek.com/usage")!)
         case "openTopUp":
+            guard availableTools.deepSeek else { return }
             NSWorkspace.shared.open(URL(string: "https://platform.deepseek.com/top_up")!)
         default:
             break
@@ -143,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     private func refresh() {
+        guard availableTools.hasAny else { return }
         guard !refreshInFlight else { return }
         refreshInFlight = true
         Task {
