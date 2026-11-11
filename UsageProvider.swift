@@ -18,6 +18,75 @@ enum UsagePaths {
     static let keychainService = "studio.aaaaa.usage.deepseek"
 }
 
+struct ToolAvailability {
+    let codex: Bool
+    let deepSeek: Bool
+
+    var hasAny: Bool { codex || deepSeek }
+
+    var dictionary: [String: Bool] {
+        ["codex": codex, "deepseek": deepSeek]
+    }
+
+    static func detect() -> ToolAvailability {
+        let fileManager = FileManager.default
+        let environment = ProcessInfo.processInfo.environment
+        let codexHome = environment["DSH_CODEX_USAGE_HOME"]
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".codex").path
+        let codexRoot = URL(fileURLWithPath: codexHome)
+        let codexConfigExists = fileManager.fileExists(
+            atPath: codexRoot.appendingPathComponent("auth.json").path
+        ) || fileManager.fileExists(
+            atPath: codexRoot.appendingPathComponent("sessions").path
+        )
+        let codexAppExists = applicationExists(
+            named: "Codex.app", fileManager: fileManager
+        ) || applicationExists(
+            named: "ChatGPT.app", fileManager: fileManager
+        )
+
+        let deepSeekHome = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".dsh")
+        let deepSeekFilesExist = fileManager.fileExists(atPath: deepSeekHome.path)
+        let deepSeekAppExists = applicationExists(
+            named: "DeepSeek Harness.app", fileManager: fileManager
+        )
+
+        return ToolAvailability(
+            codex: codexConfigExists || codexAppExists || executableExists(
+                named: "codex", environment: environment, fileManager: fileManager
+            ),
+            deepSeek: deepSeekFilesExist || deepSeekAppExists || executableExists(
+                named: "dsh", environment: environment, fileManager: fileManager
+            )
+        )
+    }
+
+    private static func applicationExists(named name: String, fileManager: FileManager) -> Bool {
+        let roots = [
+            URL(fileURLWithPath: "/Applications"),
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Applications")
+        ]
+        return roots.contains { fileManager.fileExists(atPath: $0.appendingPathComponent(name).path) }
+    }
+
+    private static func executableExists(
+        named name: String,
+        environment: [String: String],
+        fileManager: FileManager
+    ) -> Bool {
+        let pathDirectories = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        let candidates = pathDirectories + [
+            "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin",
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".local/bin").path
+        ]
+        let uniqueDirectories = Set(candidates)
+        return uniqueDirectories.contains {
+            fileManager.isExecutableFile(atPath: URL(fileURLWithPath: $0)
+                .appendingPathComponent(name).path)
+        }
+    }
+}
+
 final class DeepSeekCredentials {
     static let shared = DeepSeekCredentials()
     private let service = UsagePaths.keychainService
@@ -69,20 +138,27 @@ final class UsageProvider {
     private let redirectDelegate = NoRedirectDelegate()
     private lazy var session = URLSession(configuration: .ephemeral, delegate: redirectDelegate, delegateQueue: nil)
 
-    func snapshot() async -> [String: Any] {
-        async let codexData = codexSnapshot()
-        async let deepSeekData = deepSeekSnapshot()
+    func snapshot(availableTools: ToolAvailability) async -> [String: Any] {
+        async let codexData = codexSnapshot(enabled: availableTools.codex)
+        async let deepSeekData = deepSeekSnapshot(enabled: availableTools.deepSeek)
         return [
             "updatedAt": ISO8601DateFormatter().string(from: Date()),
+            "tools": availableTools.dictionary,
             "codex": await codexData,
             "deepseek": await deepSeekData
         ]
     }
 
-    private func codexSnapshot() async -> [String: Any] {
+    private func codexSnapshot(enabled: Bool) async -> [String: Any] {
+        guard enabled else {
+            return [
+                "installed": false, "available": false, "source": "none",
+                "primary": NSNull(), "weekly": NSNull()
+            ]
+        }
         guard let auth = readCodexAuth() else {
             return [
-                "available": false, "source": "none",
+                "installed": true, "available": false, "source": "none",
                 "error": "未找到 Codex ChatGPT 登录凭据",
                 "primary": NSNull(), "weekly": NSNull()
             ]
@@ -217,7 +293,15 @@ final class UsageProvider {
         ]
     }
 
-    private func deepSeekSnapshot() async -> [String: Any] {
+    private func deepSeekSnapshot(enabled: Bool) async -> [String: Any] {
+        guard enabled else {
+            return [
+                "installed": false, "signedIn": false, "profile": NSNull(),
+                "balanceAvailable": false, "balances": [],
+                "officialSpendAvailable": false, "officialSpend": [],
+                "tokens": zeroTokens(available: false, sessions: 0), "error": ""
+            ]
+        }
         let localTokens = readDeepSeekTokenCache()
         guard let token = DeepSeekCredentials.shared.read() else {
             return [

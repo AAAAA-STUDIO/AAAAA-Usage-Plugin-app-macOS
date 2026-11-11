@@ -7,6 +7,7 @@ import WebKit
 final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private let provider = UsageProvider()
     private let oauth = DeepSeekOAuth()
+    private let availableTools = ToolAvailability.detect()
     private var window: NSWindow!
     private var webView: WKWebView!
     private var hud: HUDController!
@@ -64,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             self.window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
+        hud.setToolAvailability(availableTools)
         let page = Bundle.main.resourceURL!.appendingPathComponent("Resources/index.html")
         webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
 
@@ -121,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         pageReady = true
+        pushToolAvailability()
         pushHUDState()
         if !latestSnapshot.isEmpty { sendSnapshot(latestSnapshot) }
     }
@@ -143,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         guard !refreshInFlight else { return }
         refreshInFlight = true
         Task {
-            let snapshot = await provider.snapshot()
+            let snapshot = await provider.snapshot(availableTools: availableTools)
             latestSnapshot = snapshot
             hud.render(snapshot)
             sendSnapshot(snapshot)
@@ -189,6 +192,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private func pushHUDState() {
         guard pageReady else { return }
         webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setUsageAlertThreshold(\(usageAlertThresholdPercent)); window.AAAAAUsage && window.AAAAAUsage.setDeepSeekBalanceAlert(\(deepSeekBalanceAlertThreshold), '\(deepSeekBalanceAlertCurrency)'); window.AAAAAUsage && window.AAAAAUsage.setHUDEnabled(\(hud.isEnabled()), \(hud.isVisible()));")
+    }
+
+    private func pushToolAvailability() {
+        guard pageReady,
+              let data = try? JSONSerialization.data(withJSONObject: availableTools.dictionary),
+              let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setToolAvailability(\(json));")
     }
 
     private var usageAlertThresholdPercent: Int {

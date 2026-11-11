@@ -171,6 +171,7 @@
   function render(snapshot) {
     if (!snapshot) return;
     latestSnapshot = snapshot;
+    if (snapshot.tools) setToolAvailability(snapshot.tools);
     const codex = snapshot.codex || {};
     const deepseek = snapshot.deepseek || {};
     const primary = codex.primary || null;
@@ -266,6 +267,37 @@
     byId("hudVisibilitySettings").textContent = status;
   }
 
+  function setToolAvailability(tools) {
+    const codex = tools && tools.codex === true;
+    const deepseek = tools && tools.deepseek === true;
+    const hasAny = codex || deepseek;
+    document.querySelectorAll("[data-tool='codex']").forEach((element) => {
+      element.hidden = !codex;
+    });
+    document.querySelectorAll("[data-tool='deepseek']").forEach((element) => {
+      element.hidden = !deepseek;
+    });
+    const accountGrid = byId("overviewAccounts");
+    accountGrid.hidden = !hasAny;
+    accountGrid.classList.toggle("single-tool", codex !== deepseek);
+    byId("lowerGrid").hidden = !hasAny;
+    byId("lowerGrid").classList.toggle("single-tool", codex !== deepseek);
+    byId("noToolsEmpty").hidden = hasAny;
+    byId("hudTopControl").hidden = !hasAny;
+    byId("hudSettingsRow").hidden = !hasAny;
+    byId("overviewDescription").textContent = codex && deepseek
+      ? "Codex 与 DeepSeek 的官方账户状态和本机 Token 统计"
+      : codex ? "Codex 账户的 5 小时与每周用量"
+      : deepseek ? "DeepSeek 官方账户金额和本机 Token 统计"
+      : "本机未检测到受支持的工具";
+    const activePage = document.querySelector(".page.view-active");
+    if (activePage && activePage.dataset.tool
+        && ((activePage.dataset.tool === "codex" && !codex)
+          || (activePage.dataset.tool === "deepseek" && !deepseek))) {
+      setView("overview");
+    }
+  }
+
   function setUsageAlertThreshold(value) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return;
@@ -348,5 +380,8 @@
   byId("deepSeekBalanceAlertThreshold").addEventListener("change", commitDeepSeekBalanceAlert);
   byId("deepSeekBalanceAlertCurrency").addEventListener("change", commitDeepSeekBalanceAlert);
 
-  window.AAAAAUsage = { render, notice: showNotice, setHUDEnabled, setUsageAlertThreshold, setDeepSeekBalanceAlert };
+  window.AAAAAUsage = {
+    render, notice: showNotice, setHUDEnabled, setUsageAlertThreshold,
+    setDeepSeekBalanceAlert, setToolAvailability
+  };
 }());

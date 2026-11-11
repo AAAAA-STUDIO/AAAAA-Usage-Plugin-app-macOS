@@ -65,6 +65,8 @@ h2 { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 590; }
 .secure-badge { padding: 8px 11px; border: 1px solid #2d343d; border-radius: 20px; background: #171b20; }
 .secure-badge .live-dot { width: 6px; height: 6px; }
 .account-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 15px; margin-bottom: 27px; }
+.account-grid.single-tool { grid-template-columns: minmax(0,1fr); }
+.empty-state { margin-bottom: 27px; color: #8d96a3; line-height: 1.6; }
 .account-card, .panel-card, .large-window { border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg,#1c2028,#181b22); box-shadow: 0 12px 40px #00000012; }
 .account-card { padding: 19px 20px 15px; min-width: 0; }
 .card-heading, .service-title { display: flex; align-items: center; }
@@ -107,6 +109,7 @@ h2 { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 590; }
 .session-summary div { display: flex; align-items: center; gap: 7px; color: #a1a9b5; }
 .tiny-dot { width: 5px; height: 5px; }
 .lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.lower-grid.single-tool { grid-template-columns: minmax(0,1fr); }
 .panel-card { padding: 18px 19px; min-width: 0; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 17px; }
 .panel-heading h2 { font-size: 15px; }

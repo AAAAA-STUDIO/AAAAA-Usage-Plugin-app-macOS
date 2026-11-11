@@ -17,8 +17,8 @@
       <div class="nav-label">用量监控</div>
       <nav>
         <button class="nav-item active" data-view="overview"><span class="nav-icon">◫</span>概览</button>
-        <button class="nav-item" data-view="codex"><span class="nav-icon">◉</span>Codex</button>
-        <button class="nav-item" data-view="deepseek"><span class="nav-icon">◈</span>DeepSeek</button>
+        <button class="nav-item" data-view="codex" data-tool="codex"><span class="nav-icon">◉</span>Codex</button>
+        <button class="nav-item" data-view="deepseek" data-tool="deepseek"><span class="nav-icon">◈</span>DeepSeek</button>
       </nav>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-note"><span class="live-dot"></span> 独立桌面应用</div>
@@ -30,7 +30,7 @@
       <header class="topbar">
         <div class="breadcrumb"><span>AAAAA</span><i>/</i><strong id="crumb">概览</strong></div>
         <div class="top-actions">
-          <label class="hud-control"><span>全局 HUD</span><input id="hudToggle" type="checkbox"><span class="switch"></span></label>
+          <label class="hud-control" id="hudTopControl"><span>全局 HUD</span><input id="hudToggle" type="checkbox"><span class="switch"></span></label>
           <span id="hudVisibilityStatus" class="hud-visibility-status" aria-live="polite"></span>
           <button class="icon-button" id="refreshButton" title="刷新用量">↻ <span>刷新</span></button>
           <span id="lastUpdated" class="updated">等待数据</span>
@@ -42,12 +42,12 @@
         <section class="page view-active" data-page="overview">
           <div class="page-heading">
             <div><div class="eyebrow">ACCOUNT OVERVIEW</div><h1>用量信息</h1>
-              <p>Codex 与 DeepSeek 的官方账户状态和本机 Token 统计</p></div>
+              <p id="overviewDescription">Codex 与 DeepSeek 的官方账户状态和本机 Token 统计</p></div>
             <span class="secure-badge"><span class="live-dot"></span>仅本机读取</span>
           </div>
 
-          <div class="account-grid">
-            <article class="account-card codex-card">
+          <div class="account-grid" id="overviewAccounts">
+            <article class="account-card codex-card" data-tool="codex">
               <div class="card-heading"><div class="service-title"><span class="service-icon codex-icon">C</span><div><strong>Codex</strong><small id="codexAccount">ChatGPT 用量</small></div></div><span class="source-pill" id="codexSource">读取中</span></div>
               <div class="window-pair">
                 <div class="window-stat"><div class="stat-label">5 小时剩余</div><div class="stat-value" id="codexPrimary">—</div><div class="progress"><i id="codexPrimaryBar"></i></div><div class="reset" id="codexPrimaryReset">等待用量数据</div></div>
@@ -56,7 +56,7 @@
               <div class="card-foot"><span id="codexPlan">读取 ChatGPT 官方用量接口</span><button class="text-button" data-view="codex">详细信息 <b>→</b></button></div>
             </article>
 
-            <article class="account-card deepseek-card">
+            <article class="account-card deepseek-card" data-tool="deepseek">
               <div class="card-heading"><div class="service-title"><span class="service-icon deepseek-icon">D</span><div><strong>DeepSeek</strong><small id="deepseekAccount">开放平台账户</small></div></div><div class="account-actions"><button class="small-button primary-button" id="deepSeekLogin">官方登录</button><button class="small-button" id="deepSeekLogout" hidden>退出登录</button></div></div>
               <div class="official-pair">
                 <div class="official-stat"><div class="stat-label">总余额 <span class="official-mark">官方</span></div><div class="stat-value" id="deepSeekBalance">—</div><div class="reset">DeepSeek 开放平台账户余额</div></div>
@@ -65,23 +65,24 @@
               <div class="card-foot"><span id="deepSeekStatus">连接官方账户后读取余额与累计金额</span><div class="inline-actions"><button class="text-button" id="openDeepSeekUsage">用量详情 <b>↗</b></button><button class="text-button" id="openDeepSeekTopUp">充值 <b>↗</b></button></div></div>
             </article>
           </div>
+          <article class="panel-card empty-state" id="noToolsEmpty" hidden>未检测到 Codex 或 DeepSeek Harness。已隐藏对应内容，也不会读取或请求这些工具的业务数据。</article>
 
-          <div class="section-title"><div><div class="eyebrow">LOCAL SESSION DATA</div><h2>Token 用量</h2></div><span class="source-pill" id="tokenSource">本机记录</span></div>
-          <div class="token-grid">
+          <div class="section-title" data-tool="deepseek"><div><div class="eyebrow">LOCAL SESSION DATA</div><h2>Token 用量</h2></div><span class="source-pill" id="tokenSource">本机记录</span></div>
+          <div class="token-grid" data-tool="deepseek">
             <div class="token-card"><span>输入</span><strong id="tokenInput">—</strong></div>
             <div class="token-card"><span>缓存输入</span><strong id="tokenCache">—</strong></div>
             <div class="token-card"><span>输出</span><strong id="tokenOutput">—</strong></div>
             <div class="token-card highlight-token"><span>合计</span><strong id="tokenTotal">—</strong></div>
           </div>
-          <div class="session-summary"><div><span class="tiny-dot"></span><span id="sessionCount">等待本机会话统计</span></div><span>Token 统计来自本机 DeepSeek Harness 会话投影，不发送到网络</span></div>
+          <div class="session-summary" data-tool="deepseek"><div><span class="tiny-dot"></span><span id="sessionCount">等待本机会话统计</span></div><span>Token 统计来自本机 DeepSeek Harness 会话投影，不发送到网络</span></div>
 
-          <div class="lower-grid">
-            <article class="panel-card"><div class="panel-heading"><div><div class="eyebrow">USAGE WINDOWS</div><h2>Codex 用量窗口</h2></div><span class="panel-icon">◉</span></div>
+          <div class="lower-grid" id="lowerGrid">
+            <article class="panel-card" data-tool="codex"><div class="panel-heading"><div><div class="eyebrow">USAGE WINDOWS</div><h2>Codex 用量窗口</h2></div><span class="panel-icon">◉</span></div>
               <div class="mini-window"><div><span>5 小时剩余</span><strong id="miniPrimary">—</strong></div><div class="progress"><i id="miniPrimaryBar"></i></div></div>
               <div class="mini-window"><div><span>每周剩余</span><strong id="miniWeekly">—</strong></div><div class="progress"><i id="miniWeeklyBar"></i></div></div>
               <div class="panel-note" id="codexNote">用量来自当前 Codex 登录态；接口故障时使用最近的本机会话快照。</div>
             </article>
-            <article class="panel-card"><div class="panel-heading"><div><div class="eyebrow">OFFICIAL BILLING</div><h2>DeepSeek 官方金额</h2></div><span class="panel-icon green">¥</span></div>
+            <article class="panel-card" data-tool="deepseek"><div class="panel-heading"><div><div class="eyebrow">OFFICIAL BILLING</div><h2>DeepSeek 官方金额</h2></div><span class="panel-icon green">¥</span></div>
               <div class="billing-line"><span>账户余额</span><strong id="miniBalance">—</strong></div>
               <div class="billing-line"><span>累计消费</span><strong id="miniSpend">—</strong></div>
               <div class="panel-note">金额直接来自 DeepSeek 开放平台账户摘要；不会用本机 Token 估算替代。</div>
@@ -89,7 +90,7 @@
           </div>
         </section>
 
-        <section class="page" data-page="codex">
+        <section class="page" data-page="codex" data-tool="codex">
           <div class="page-heading"><div><div class="eyebrow">CODEX ACCOUNT</div><h1>Codex 用量</h1><p>ChatGPT 账户当前 5 小时与每周窗口的剩余比例</p></div><span class="source-pill" id="codexDetailSource">等待数据</span></div>
           <div class="window-grid">
             <article class="large-window"><div class="window-top"><span>5 小时剩余</span><span class="window-badge">滚动窗口</span></div><strong id="detailPrimary">—</strong><div class="progress large-progress"><i id="detailPrimaryBar"></i></div><p id="detailPrimaryReset">等待用量数据</p></article>
@@ -98,27 +99,27 @@
           <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">DATA SOURCE</div><h2>数据说明</h2></div><span class="panel-icon">i</span></div><p id="codexDetailNote">Host 端使用本机 Codex 登录凭据请求 ChatGPT 用量接口。接口不可用时，会读取最近的本地会话记录。</p><p id="codexError" class="muted"></p></article>
         </section>
 
-        <section class="page" data-page="deepseek">
+        <section class="page" data-page="deepseek" data-tool="deepseek">
           <div class="page-heading"><div><div class="eyebrow">DEEPSEEK ACCOUNT</div><h1>DeepSeek 用量</h1><p>独立浏览器授权，官方账户金额与本机 Token 记录分别展示</p></div><div class="account-actions"><button class="small-button primary-button" id="deepSeekLoginDetail">官方登录</button><button class="small-button" id="deepSeekLogoutDetail" hidden>退出登录</button></div></div>
           <div class="account-grid">
             <article class="account-card deepseek-card large-account-card"><div class="card-heading"><div class="service-title"><span class="service-icon deepseek-icon">D</span><div><strong>账户余额</strong><small>DeepSeek 开放平台</small></div></div><span class="official-mark">官方数据</span></div><div class="large-money" id="detailBalance">—</div><p class="reset">账户剩余余额</p></article>
             <article class="account-card deepseek-card large-account-card"><div class="card-heading"><div class="service-title"><span class="service-icon deepseek-icon">¥</span><div><strong>累计消费金额</strong><small>DeepSeek 开放平台账户摘要</small></div></div><span class="official-mark">官方数据</span></div><div class="large-money" id="detailSpend">—</div><p class="reset">平台账单可能存在延迟</p></article>
           </div>
-          <div class="section-title"><div><div class="eyebrow">LOCAL TOKEN RECORDS</div><h2>本机 Token 统计</h2></div><span class="source-pill" id="deepSeekTokenSource">本机记录</span></div>
-          <div class="token-grid">
+          <div class="section-title" data-tool="deepseek"><div><div class="eyebrow">LOCAL TOKEN RECORDS</div><h2>本机 Token 统计</h2></div><span class="source-pill" id="deepSeekTokenSource">本机记录</span></div>
+          <div class="token-grid" data-tool="deepseek">
             <div class="token-card"><span>输入</span><strong id="deepTokenInput">—</strong></div><div class="token-card"><span>缓存输入</span><strong id="deepTokenCache">—</strong></div><div class="token-card"><span>输出</span><strong id="deepTokenOutput">—</strong></div><div class="token-card highlight-token"><span>合计</span><strong id="deepTokenTotal">—</strong></div>
           </div>
-          <div class="session-summary"><div><span class="tiny-dot"></span><span id="deepSessionCount">等待本机会话统计</span></div><span>账户官方金额与本机 Token 统计互相独立</span></div>
+          <div class="session-summary" data-tool="deepseek"><div><span class="tiny-dot"></span><span id="deepSessionCount">等待本机会话统计</span></div><span>账户官方金额与本机 Token 统计互相独立</span></div>
           <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">ACCOUNT ACTIONS</div><h2>开放平台</h2></div><span class="panel-icon green">↗</span></div><p>官方金额直接读取平台账户摘要。若平台页面调整接口，应用会显示不可用状态，不会将本地估算冒充官方账单。</p><div class="inline-actions"><button class="small-button" id="openDeepSeekUsageDetail">打开官方用量页</button><button class="small-button" id="openDeepSeekTopUpDetail">前往充值</button></div></article>
         </section>
 
         <section class="page" data-page="settings">
           <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p>管理全局 HUD 与本机数据来源</p></div></div>
-          <article class="panel-card setting-card"><div class="setting-row"><div><strong>全局置顶 HUD</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><div class="hud-setting-control"><span id="hudVisibilitySettings" class="setting-value" aria-live="polite"></span><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div></div>
-            <div class="setting-row"><div><strong>Codex 剩余用量报警</strong><p>5 小时或每周窗口的剩余比例低于或等于阈值时，对应数字和进度条会变为橙色；主界面和 HUD 同步显示。</p></div><label class="threshold-control"><input id="usageAlertThreshold" type="number" min="0" max="100" step="1" value="20" aria-label="Codex 剩余用量报警阈值"><span>%</span></label></div>
-            <div class="setting-row"><div><strong>DeepSeek 余额报警</strong><p>所选币种的账户余额低于或等于阈值时，余额显示变为橙色；HUD 会显示所选币种余额。</p></div><div class="threshold-control"><select id="deepSeekBalanceAlertCurrency" aria-label="DeepSeek 报警币种"><option value="CNY">人民币 ¥</option><option value="USD">美元 $</option></select><input id="deepSeekBalanceAlertThreshold" type="number" min="0" step="0.01" value="10" aria-label="DeepSeek 余额报警阈值"></div></div>
+          <article class="panel-card setting-card"><div class="setting-row" id="hudSettingsRow"><div><strong>全局置顶 HUD</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><div class="hud-setting-control"><span id="hudVisibilitySettings" class="setting-value" aria-live="polite"></span><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div></div>
+            <div class="setting-row" data-tool="codex"><div><strong>Codex 剩余用量报警</strong><p>5 小时或每周窗口的剩余比例低于或等于阈值时，对应数字和进度条会变为橙色；主界面和 HUD 同步显示。</p></div><label class="threshold-control"><input id="usageAlertThreshold" type="number" min="0" max="100" step="1" value="20" aria-label="Codex 剩余用量报警阈值"><span>%</span></label></div>
+            <div class="setting-row" data-tool="deepseek"><div><strong>DeepSeek 余额报警</strong><p>所选币种的账户余额低于或等于阈值时，余额显示变为橙色；HUD 会显示所选币种余额。</p></div><div class="threshold-control"><select id="deepSeekBalanceAlertCurrency" aria-label="DeepSeek 报警币种"><option value="CNY">人民币 ¥</option><option value="USD">美元 $</option></select><input id="deepSeekBalanceAlertThreshold" type="number" min="0" step="0.01" value="10" aria-label="DeepSeek 余额报警阈值"></div></div>
             <div class="setting-row"><div><strong>自动刷新</strong><p>每 30 秒更新账户摘要和用量。</p></div><span class="setting-value">已开启</span></div>
-            <div class="setting-row"><div><strong>DeepSeek 登录</strong><p>通过 DeepSeek 官方浏览器授权，令牌只保存在 macOS 钥匙串。</p></div><button class="small-button primary-button" id="deepSeekLoginSettings">官方登录</button></div>
+            <div class="setting-row" data-tool="deepseek"><div><strong>DeepSeek 登录</strong><p>通过 DeepSeek 官方浏览器授权，令牌只保存在 macOS 钥匙串。</p></div><button class="small-button primary-button" id="deepSeekLoginSettings">官方登录</button></div>
           </article>
           <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">PRIVACY</div><h2>本机隐私</h2></div><span class="panel-icon">⌑</span></div><ul class="privacy-list"><li>Codex 登录令牌只用于向 chatgpt.com 请求当前用量。</li><li>DeepSeek 登录令牌保存在 macOS 钥匙串，只发送到 platform.deepseek.com。</li><li>本机 Token 统计仅读取会话投影中的 Token 计数，不上传会话内容。</li><li>HUD 位置、展开状态、开关状态和用量报警阈值保存在本机偏好设置中。</li></ul></article>
         </section>

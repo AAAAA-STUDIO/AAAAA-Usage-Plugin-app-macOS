@@ -11,6 +11,11 @@ final class HUDController {
     private let rootView: MovableHUDView
     private let compactStack: NSStackView
     private let expandedStack: NSStackView
+    private let compactCodexMetric: NSView
+    private let compactDeepSeekMetric: NSView
+    private let codexCard: HUDMetricCard
+    private let deepSeekCard: HUDMetricCard
+    private var expandedMetricsHeightConstraint: NSLayoutConstraint!
     private let compactCodexValue: NSTextField
     private let compactDeepSeekValue: NSTextField
     private let compactUpdatedValue: NSTextField
@@ -39,12 +44,12 @@ final class HUDController {
 
     private static let panelWidth: CGFloat = 368
     private static let collapsedHeight: CGFloat = 79
-    private static let expandedHeight: CGFloat = 236
+    private var expandedHeight: CGFloat = 236
     private static var collapsedSize: NSSize {
         NSSize(width: panelWidth, height: collapsedHeight)
     }
-    private static var expandedSize: NSSize {
-        NSSize(width: panelWidth, height: expandedHeight)
+    private var expandedSize: NSSize {
+        NSSize(width: Self.panelWidth, height: expandedHeight)
     }
 
     init() {
@@ -100,16 +105,11 @@ final class HUDController {
         compactExpandButton.widthAnchor.constraint(equalToConstant: 26).isActive = true
         compactExpandButton.heightAnchor.constraint(equalToConstant: 26).isActive = true
 
-        let compactMetrics = NSStackView(views: [
-            HUDCompactMetric(
-                title: "Codex · 5 小时剩余",
-                value: compactCodex
-            ),
-            HUDCompactMetric(
-                title: "DeepSeek 余额",
-                value: compactDeepSeek
-            )
-        ])
+        let compactCodexMetric = HUDCompactMetric(title: "Codex · 5 小时剩余", value: compactCodex)
+        let compactDeepSeekMetric = HUDCompactMetric(title: "DeepSeek 余额", value: compactDeepSeek)
+        self.compactCodexMetric = compactCodexMetric
+        self.compactDeepSeekMetric = compactDeepSeekMetric
+        let compactMetrics = NSStackView(views: [compactCodexMetric, compactDeepSeekMetric])
         compactMetrics.orientation = .horizontal
         compactMetrics.alignment = .centerY
         compactMetrics.distribution = .fillEqually
@@ -150,6 +150,7 @@ final class HUDController {
             firstLabel: "5 小时剩余",
             secondLabel: "每周剩余"
         )
+        self.codexCard = codexCard
         codexPrimaryValue = codexCard.firstValue
         codexWeeklyValue = codexCard.secondValue
         let deepSeekCard = HUDMetricCard(
@@ -157,6 +158,7 @@ final class HUDController {
             firstLabel: "账户余额 · 官方",
             secondLabel: "累计消费 · 官方"
         )
+        self.deepSeekCard = deepSeekCard
         deepSeekBalanceValue = deepSeekCard.firstValue
         deepSeekSpendValue = deepSeekCard.secondValue
 
@@ -191,7 +193,8 @@ final class HUDController {
             view.widthAnchor.constraint(equalTo: expandedStack.widthAnchor).isActive = true
         }
         header.heightAnchor.constraint(equalToConstant: 24).isActive = true
-        metrics.heightAnchor.constraint(equalToConstant: 160).isActive = true
+        expandedMetricsHeightConstraint = metrics.heightAnchor.constraint(equalToConstant: 160)
+        expandedMetricsHeightConstraint.isActive = true
         footer.heightAnchor.constraint(equalToConstant: 16).isActive = true
 
         root.addSubview(compactStack)
@@ -226,7 +229,7 @@ final class HUDController {
         )
         hudPanel.contentView = root
         hudPanel.contentMinSize = NSSize(width: Self.panelWidth, height: Self.collapsedHeight)
-        hudPanel.contentMaxSize = NSSize(width: Self.panelWidth, height: Self.expandedHeight)
+        hudPanel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
         hudPanel.hasShadow = true
@@ -294,6 +297,27 @@ final class HUDController {
         deepSeekBalanceAlertCurrency = currency == "USD" ? "USD" : "CNY"
         updateDeepSeekBalanceValues()
         updateUsageAlertColors()
+    }
+
+    func setToolAvailability(_ availability: ToolAvailability) {
+        compactCodexMetric.isHidden = !availability.codex
+        compactDeepSeekMetric.isHidden = !availability.deepSeek
+        codexCard.isHidden = !availability.codex
+        deepSeekCard.isHidden = !availability.deepSeek
+
+        let visibleMetricCount = (availability.codex ? 1 : 0) + (availability.deepSeek ? 1 : 0)
+        expandedMetricsHeightConstraint.constant = CGFloat(visibleMetricCount * 76)
+            + CGFloat(max(0, visibleMetricCount - 1) * 8)
+        expandedHeight = 76 + expandedMetricsHeightConstraint.constant
+        panel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
+
+        if !availability.hasAny {
+            isExpanded = false
+            defaults.set(false, forKey: "hud.expanded")
+            setEnabled(false)
+        }
+        updateLayout()
+        if enabled { panel.orderFrontRegardless() }
     }
 
     func render(_ snapshot: [String: Any]) {
@@ -416,8 +440,8 @@ final class HUDController {
             fallbackFrame: capsule
         )
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
-        let width = min(Self.expandedSize.width, visible.width)
-        let height = min(Self.expandedSize.height, visible.height)
+        let width = min(expandedSize.width, visible.width)
+        let height = min(expandedSize.height, visible.height)
         let extraWidth = max(0, width - capsule.width)
         let extraHeight = max(0, height - capsule.height)
         let roomRight = visible.maxX - capsule.maxX
