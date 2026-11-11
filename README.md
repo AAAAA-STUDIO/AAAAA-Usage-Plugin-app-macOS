@@ -27,6 +27,7 @@ open AAAAAUsage.xcodeproj
 
 - Codex：读取 `~/.codex/auth.json` 中的 ChatGPT 登录令牌，只请求 `chatgpt.com/backend-api/wham/usage`；接口不可用时读取最近的 Codex 本地会话快照。
 - DeepSeek：使用 PKCE 浏览器授权，令牌写入 macOS 钥匙串。登录及账户请求只发往 `platform.deepseek.com`。
+- 启动检测将 Codex 的配置/会话目录、`Codex.app` 或 `codex` 命令视为可用迹象；将 `~/.dsh`、`DeepSeek Harness.app` 或 `dsh` 命令视为 DeepSeek Harness 可用迹象。可在应用关闭后重新安装或移除工具，再启动应用更新状态。
 - DeepSeek 余额和累计消费金额都来自官方账户摘要接口。若官方接口不可用或返回格式变化，页面显示不可用，不以本地估算冒充官方金额。
 - Token 统计只读取 `~/.dsh/storages/session_projcache/sessions` 中的本机会话 Token 投影；程序不会读取或上传会话正文。没有 DSH 会话投影时会显示暂无本地记录。
 - HUD 的开关、折叠状态、胶囊位置、Codex 用量报警阈值和 DeepSeek 余额报警设置保存在本机应用偏好设置中。

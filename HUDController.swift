@@ -257,7 +257,7 @@ final class HUDController {
         anchor = loadAnchor()
         setToolAvailability(availableTools)
         updateLayout()
-        if enabled { panel.orderFrontRegardless() }
+        if enabled && availableTools.hasAny { panel.orderFrontRegardless() }
 
         screenChangeObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -312,13 +312,9 @@ final class HUDController {
         expandedHeight = max(Self.collapsedHeight, 76 + expandedMetricsHeightConstraint.constant)
         panel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
 
-        if !availability.hasAny {
-            isExpanded = false
-            defaults.set(false, forKey: "hud.expanded")
-            setEnabled(false)
-        }
+        if !availability.hasAny { panel.orderOut(nil) }
         updateLayout()
-        if enabled { panel.orderFrontRegardless() }
+        if enabled && availability.hasAny { panel.orderFrontRegardless() }
     }
 
     func render(_ snapshot: [String: Any]) {

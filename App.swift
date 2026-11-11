@@ -7,7 +7,7 @@ import WebKit
 final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private let provider = UsageProvider()
     private let oauth = DeepSeekOAuth()
-    private let availableTools = ToolAvailability.detect()
+    private var availableTools = ToolAvailability.detect()
     private var window: NSWindow!
     private var webView: WKWebView!
     private var hud: HUDController!
@@ -77,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        checkToolAvailability()
         if !hasVisibleWindows { window.makeKeyAndOrderFront(nil) }
         return true
     }
@@ -160,6 +161,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             hud.render(snapshot)
             sendSnapshot(snapshot)
             refreshInFlight = false
+        }
+    }
+
+    private func checkToolAvailability() {
+        availableTools = ToolAvailability.detect()
+        hud.setToolAvailability(availableTools)
+        pushToolAvailability()
+        pushHUDState()
+        if availableTools.hasAny {
+            if refreshTimer == nil {
+                refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+                    Task { @MainActor in self?.refresh() }
+                }
+            }
+            refresh()
+        } else {
+            refreshTimer?.invalidate()
+            refreshTimer = nil
         }
     }
 
