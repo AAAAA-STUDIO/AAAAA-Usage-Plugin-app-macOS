@@ -3,7 +3,7 @@ import Foundation
 import WebKit
 
 @MainActor
-@NSApplicationMain
+@main
 final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private let provider = UsageProvider()
     private let oauth = DeepSeekOAuth()
@@ -14,6 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private var refreshInFlight = false
     private var pageReady = false
     private var latestSnapshot: [String: Any] = [:]
+
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMenu()
