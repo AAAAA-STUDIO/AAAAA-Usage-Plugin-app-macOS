@@ -31,6 +31,7 @@
         <div class="breadcrumb"><span>AAAAA</span><i>/</i><strong id="crumb">概览</strong></div>
         <div class="top-actions">
           <label class="hud-control"><span>全局 HUD</span><input id="hudToggle" type="checkbox"><span class="switch"></span></label>
+          <span id="hudVisibilityStatus" class="hud-visibility-status" aria-live="polite"></span>
           <button class="icon-button" id="refreshButton" title="刷新用量">↻ <span>刷新</span></button>
           <span id="lastUpdated" class="updated">等待数据</span>
         </div>
@@ -113,7 +114,7 @@
 
         <section class="page" data-page="settings">
           <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p>管理全局 HUD 与本机数据来源</p></div></div>
-          <article class="panel-card setting-card"><div class="setting-row"><div><strong>全局置顶 HUD</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div>
+          <article class="panel-card setting-card"><div class="setting-row"><div><strong>全局置顶 HUD</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><div class="hud-setting-control"><span id="hudVisibilitySettings" class="setting-value" aria-live="polite"></span><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div></div>
             <div class="setting-row"><div><strong>自动刷新</strong><p>每 30 秒更新账户摘要和用量。</p></div><span class="setting-value">已开启</span></div>
             <div class="setting-row"><div><strong>DeepSeek 登录</strong><p>通过 DeepSeek 官方浏览器授权，令牌只保存在 macOS 钥匙串。</p></div><button class="small-button primary-button" id="deepSeekLoginSettings">官方登录</button></div>
           </article>

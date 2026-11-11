@@ -156,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     private func pushHUDState() {
         guard pageReady else { return }
-        webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setHUDEnabled(\(hud.isEnabled()));")
+        webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setHUDEnabled(\(hud.isEnabled()), \(hud.isVisible()));")
     }
 
     private func installMenu() {

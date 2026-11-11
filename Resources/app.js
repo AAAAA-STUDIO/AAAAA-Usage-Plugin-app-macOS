@@ -229,9 +229,12 @@
     if (payload.text) noticeTimer = setTimeout(() => banner.classList.remove("visible"), 5200);
   }
 
-  function setHUDEnabled(enabled) {
+  function setHUDEnabled(enabled, visible) {
     byId("hudToggle").checked = enabled;
     byId("hudToggleSettings").checked = enabled;
+    const status = !enabled ? "HUD 已关闭" : visible ? "HUD 显示中" : "HUD 窗口未显示";
+    byId("hudVisibilityStatus").textContent = status;
+    byId("hudVisibilitySettings").textContent = status;
   }
 
   function setView(name) {

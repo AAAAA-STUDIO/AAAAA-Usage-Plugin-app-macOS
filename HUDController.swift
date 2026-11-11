@@ -126,6 +126,8 @@ final class HUDController {
 
     func isEnabled() -> Bool { enabled }
 
+    func isVisible() -> Bool { panel.isVisible }
+
     func render(_ snapshot: [String: Any]) {
         let codex = snapshot["codex"] as? [String: Any] ?? [:]
         let deepseek = snapshot["deepseek"] as? [String: Any] ?? [:]
