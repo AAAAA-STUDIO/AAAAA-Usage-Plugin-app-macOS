@@ -4,7 +4,9 @@
 
 ## 功能
 
-- 查看 Codex ChatGPT 当前 5 小时与每周用量。
+- 查看 Codex ChatGPT 当前 5 小时与每周窗口的剩余用量。
+- 可设置 Codex 剩余用量报警阈值；任一窗口低于或等于阈值时，主界面和 HUD 中对应的数字与进度条变为橙色。
+- 可设置 DeepSeek 余额报警币种和金额阈值；所选币种余额低于或等于阈值时，主界面与 HUD 中余额变为橙色。
 - 通过 DeepSeek 官方浏览器授权登录，查看账户余额和官方累计消费金额。
 - 汇总本机 DeepSeek Harness 会话投影里的 Token 统计；此项来自本机记录，不是官方账单。
 - 显示可拖动、可展开和收起的系统级置顶 HUD。展开时以折叠胶囊左上角为锚点，折叠后回到同一位置。
@@ -26,6 +28,6 @@ open AAAAAUsage.xcodeproj
 - DeepSeek：使用 PKCE 浏览器授权，令牌写入 macOS 钥匙串。登录及账户请求只发往 `platform.deepseek.com`。
 - DeepSeek 余额和累计消费金额都来自官方账户摘要接口。若官方接口不可用或返回格式变化，页面显示不可用，不以本地估算冒充官方金额。
 - Token 统计只读取 `~/.dsh/storages/session_projcache/sessions` 中的本机会话 Token 投影；程序不会读取或上传会话正文。没有 DSH 会话投影时会显示暂无本地记录。
-- HUD 的开关、折叠状态和胶囊位置保存在本机应用偏好设置中。
+- HUD 的开关、折叠状态、胶囊位置、Codex 用量报警阈值和 DeepSeek 余额报警设置保存在本机应用偏好设置中。
 
 DeepSeek 官方账户授权流程参考 [DeepSeek Harness 官方账户平台实现](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/credentials/deepseek-account-platform)。累计消费金额接口是开放平台页面使用的账户摘要接口，目前没有公开的稳定 API 文档。

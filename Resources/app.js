@@ -5,6 +5,10 @@
   const integerFormatter = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 });
   const byId = (id) => document.getElementById(id);
   let noticeTimer = null;
+  let usageAlertThresholdPercent = 20;
+  let deepSeekBalanceAlertThreshold = 10;
+  let deepSeekBalanceAlertCurrency = "CNY";
+  let latestSnapshot = null;
 
   function native(action, extra = {}) {
     const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.aaaaa;
@@ -95,6 +99,14 @@
       .join("  ·  ");
   }
 
+  function deepSeekBalanceIsAtOrBelowAlert(deepseek) {
+    const balances = deepseek && Array.isArray(deepseek.balances) ? deepseek.balances : [];
+    const selected = balances.find((item) => item && item.currency === deepSeekBalanceAlertCurrency);
+    if (!selected || selected.amount === undefined || selected.amount === null) return false;
+    const amount = Number(selected.amount);
+    return Number.isFinite(amount) && amount <= deepSeekBalanceAlertThreshold;
+  }
+
   function resetText(resetAt) {
     const milliseconds = Number(resetAt);
     if (!Number.isFinite(milliseconds) || milliseconds <= 0) return "重置时间暂不可用";
@@ -104,16 +116,25 @@
     });
   }
 
+  function applyUsageAlert(valueId, barId, remainingPercent) {
+    const isAlert = remainingPercent !== null && remainingPercent <= usageAlertThresholdPercent;
+    byId(valueId).classList.toggle("usage-alert", isAlert);
+    byId(barId).classList.toggle("usage-alert", isAlert);
+  }
+
   function setWindow(prefix, data) {
     if (!data || typeof data !== "object") {
       byId(prefix).textContent = "—";
       byId(prefix + "Bar").style.width = "0%";
+      applyUsageAlert(prefix, prefix + "Bar", null);
       if (byId(prefix + "Reset")) byId(prefix + "Reset").textContent = "用量数据暂不可用";
       return;
     }
-    const percent = Math.max(0, Math.min(100, Number(data.usedPercent) || 0));
-    byId(prefix).textContent = Math.round(percent) + "%";
-    byId(prefix + "Bar").style.width = percent + "%";
+    const usedPercent = Math.max(0, Math.min(100, Number(data.usedPercent) || 0));
+    const remainingPercent = Math.round(100 - usedPercent);
+    byId(prefix).textContent = remainingPercent + "%";
+    byId(prefix + "Bar").style.width = remainingPercent + "%";
+    applyUsageAlert(prefix, prefix + "Bar", remainingPercent);
     if (byId(prefix + "Reset")) byId(prefix + "Reset").textContent = resetText(data.resetAt);
   }
 
@@ -122,12 +143,15 @@
     if (!data || typeof data !== "object") {
       target.textContent = "—";
       byId(barId).style.width = "0%";
+      applyUsageAlert(id, barId, null);
       byId(resetId).textContent = "用量数据暂不可用";
       return;
     }
-    const percent = Math.max(0, Math.min(100, Number(data.usedPercent) || 0));
-    target.textContent = Math.round(percent) + "%";
-    byId(barId).style.width = percent + "%";
+    const usedPercent = Math.max(0, Math.min(100, Number(data.usedPercent) || 0));
+    const remainingPercent = Math.round(100 - usedPercent);
+    target.textContent = remainingPercent + "%";
+    byId(barId).style.width = remainingPercent + "%";
+    applyUsageAlert(id, barId, remainingPercent);
     byId(resetId).textContent = resetText(data.resetAt);
   }
 
@@ -146,6 +170,7 @@
 
   function render(snapshot) {
     if (!snapshot) return;
+    latestSnapshot = snapshot;
     const codex = snapshot.codex || {};
     const deepseek = snapshot.deepseek || {};
     const primary = codex.primary || null;
@@ -194,6 +219,10 @@
     byId("miniSpend").textContent = spendText;
     byId("detailBalance").textContent = balanceText;
     byId("detailSpend").textContent = spendText;
+    const deepSeekBalanceAlert = signedIn && deepSeekBalanceIsAtOrBelowAlert(deepseek);
+    for (const id of ["deepSeekBalance", "miniBalance", "detailBalance"]) {
+      byId(id).classList.toggle("usage-alert", deepSeekBalanceAlert);
+    }
     byId("deepSeekStatus").textContent = signedIn
       ? (deepseek.error || "官方账户已连接")
       : "连接官方账户后读取余额与累计金额";
@@ -237,6 +266,27 @@
     byId("hudVisibilitySettings").textContent = status;
   }
 
+  function setUsageAlertThreshold(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return;
+    usageAlertThresholdPercent = Math.min(100, Math.max(0, Math.round(parsed)));
+    const input = byId("usageAlertThreshold");
+    if (input) input.value = String(usageAlertThresholdPercent);
+    if (latestSnapshot) render(latestSnapshot);
+  }
+
+  function setDeepSeekBalanceAlert(threshold, currency) {
+    const parsed = Number(threshold);
+    if (!Number.isFinite(parsed)) return;
+    deepSeekBalanceAlertThreshold = Math.max(0, parsed);
+    deepSeekBalanceAlertCurrency = currency === "USD" ? "USD" : "CNY";
+    const amountInput = byId("deepSeekBalanceAlertThreshold");
+    if (amountInput) amountInput.value = String(deepSeekBalanceAlertThreshold);
+    const currencyInput = byId("deepSeekBalanceAlertCurrency");
+    if (currencyInput) currencyInput.value = deepSeekBalanceAlertCurrency;
+    if (latestSnapshot) render(latestSnapshot);
+  }
+
   function setView(name) {
     document.querySelectorAll("[data-page]").forEach((page) => {
       page.classList.toggle("view-active", page.dataset.page === name);
@@ -264,6 +314,39 @@
   for (const toggle of [byId("hudToggle"), byId("hudToggleSettings")]) {
     toggle.addEventListener("change", () => native("toggleHUD", { enabled: toggle.checked }));
   }
+  byId("usageAlertThreshold").addEventListener("change", (event) => {
+    const input = event.currentTarget;
+    if (input.value.trim() === "") {
+      input.value = String(usageAlertThresholdPercent);
+      return;
+    }
+    const parsed = Number(input.value);
+    if (!Number.isFinite(parsed)) {
+      input.value = String(usageAlertThresholdPercent);
+      return;
+    }
+    const threshold = Math.min(100, Math.max(0, Math.round(parsed)));
+    setUsageAlertThreshold(threshold);
+    native("setUsageAlertThreshold", { value: threshold });
+  });
+  const commitDeepSeekBalanceAlert = () => {
+    const amountInput = byId("deepSeekBalanceAlertThreshold");
+    if (amountInput.value.trim() === "") {
+      amountInput.value = String(deepSeekBalanceAlertThreshold);
+      return;
+    }
+    const parsed = Number(amountInput.value);
+    if (!Number.isFinite(parsed)) {
+      amountInput.value = String(deepSeekBalanceAlertThreshold);
+      return;
+    }
+    const threshold = Math.max(0, parsed);
+    const currency = byId("deepSeekBalanceAlertCurrency").value;
+    setDeepSeekBalanceAlert(threshold, currency);
+    native("setDeepSeekBalanceAlert", { threshold, currency });
+  };
+  byId("deepSeekBalanceAlertThreshold").addEventListener("change", commitDeepSeekBalanceAlert);
+  byId("deepSeekBalanceAlertCurrency").addEventListener("change", commitDeepSeekBalanceAlert);
 
-  window.AAAAAUsage = { render, notice: showNotice, setHUDEnabled };
+  window.AAAAAUsage = { render, notice: showNotice, setHUDEnabled, setUsageAlertThreshold, setDeepSeekBalanceAlert };
 }());

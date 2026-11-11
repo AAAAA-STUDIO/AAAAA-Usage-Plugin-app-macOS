@@ -50,8 +50,8 @@
             <article class="account-card codex-card">
               <div class="card-heading"><div class="service-title"><span class="service-icon codex-icon">C</span><div><strong>Codex</strong><small id="codexAccount">ChatGPT 用量</small></div></div><span class="source-pill" id="codexSource">读取中</span></div>
               <div class="window-pair">
-                <div class="window-stat"><div class="stat-label">5 小时窗口</div><div class="stat-value" id="codexPrimary">—</div><div class="progress"><i id="codexPrimaryBar"></i></div><div class="reset" id="codexPrimaryReset">等待用量数据</div></div>
-                <div class="window-stat"><div class="stat-label">每周窗口</div><div class="stat-value" id="codexWeekly">—</div><div class="progress"><i id="codexWeeklyBar"></i></div><div class="reset" id="codexWeeklyReset">等待用量数据</div></div>
+                <div class="window-stat"><div class="stat-label">5 小时剩余</div><div class="stat-value" id="codexPrimary">—</div><div class="progress"><i id="codexPrimaryBar"></i></div><div class="reset" id="codexPrimaryReset">等待用量数据</div></div>
+                <div class="window-stat"><div class="stat-label">每周剩余</div><div class="stat-value" id="codexWeekly">—</div><div class="progress"><i id="codexWeeklyBar"></i></div><div class="reset" id="codexWeeklyReset">等待用量数据</div></div>
               </div>
               <div class="card-foot"><span id="codexPlan">读取 ChatGPT 官方用量接口</span><button class="text-button" data-view="codex">详细信息 <b>→</b></button></div>
             </article>
@@ -77,8 +77,8 @@
 
           <div class="lower-grid">
             <article class="panel-card"><div class="panel-heading"><div><div class="eyebrow">USAGE WINDOWS</div><h2>Codex 用量窗口</h2></div><span class="panel-icon">◉</span></div>
-              <div class="mini-window"><div><span>5 小时窗口</span><strong id="miniPrimary">—</strong></div><div class="progress"><i id="miniPrimaryBar"></i></div></div>
-              <div class="mini-window"><div><span>每周窗口</span><strong id="miniWeekly">—</strong></div><div class="progress"><i id="miniWeeklyBar"></i></div></div>
+              <div class="mini-window"><div><span>5 小时剩余</span><strong id="miniPrimary">—</strong></div><div class="progress"><i id="miniPrimaryBar"></i></div></div>
+              <div class="mini-window"><div><span>每周剩余</span><strong id="miniWeekly">—</strong></div><div class="progress"><i id="miniWeeklyBar"></i></div></div>
               <div class="panel-note" id="codexNote">用量来自当前 Codex 登录态；接口故障时使用最近的本机会话快照。</div>
             </article>
             <article class="panel-card"><div class="panel-heading"><div><div class="eyebrow">OFFICIAL BILLING</div><h2>DeepSeek 官方金额</h2></div><span class="panel-icon green">¥</span></div>
@@ -90,10 +90,10 @@
         </section>
 
         <section class="page" data-page="codex">
-          <div class="page-heading"><div><div class="eyebrow">CODEX ACCOUNT</div><h1>Codex 用量</h1><p>ChatGPT 账户当前的 5 小时和每周使用窗口</p></div><span class="source-pill" id="codexDetailSource">等待数据</span></div>
+          <div class="page-heading"><div><div class="eyebrow">CODEX ACCOUNT</div><h1>Codex 用量</h1><p>ChatGPT 账户当前 5 小时与每周窗口的剩余比例</p></div><span class="source-pill" id="codexDetailSource">等待数据</span></div>
           <div class="window-grid">
-            <article class="large-window"><div class="window-top"><span>5 小时窗口</span><span class="window-badge">滚动窗口</span></div><strong id="detailPrimary">—</strong><div class="progress large-progress"><i id="detailPrimaryBar"></i></div><p id="detailPrimaryReset">等待用量数据</p></article>
-            <article class="large-window"><div class="window-top"><span>每周窗口</span><span class="window-badge">滚动窗口</span></div><strong id="detailWeekly">—</strong><div class="progress large-progress"><i id="detailWeeklyBar"></i></div><p id="detailWeeklyReset">等待用量数据</p></article>
+            <article class="large-window"><div class="window-top"><span>5 小时剩余</span><span class="window-badge">滚动窗口</span></div><strong id="detailPrimary">—</strong><div class="progress large-progress"><i id="detailPrimaryBar"></i></div><p id="detailPrimaryReset">等待用量数据</p></article>
+            <article class="large-window"><div class="window-top"><span>每周剩余</span><span class="window-badge">滚动窗口</span></div><strong id="detailWeekly">—</strong><div class="progress large-progress"><i id="detailWeeklyBar"></i></div><p id="detailWeeklyReset">等待用量数据</p></article>
           </div>
           <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">DATA SOURCE</div><h2>数据说明</h2></div><span class="panel-icon">i</span></div><p id="codexDetailNote">Host 端使用本机 Codex 登录凭据请求 ChatGPT 用量接口。接口不可用时，会读取最近的本地会话记录。</p><p id="codexError" class="muted"></p></article>
         </section>
@@ -115,10 +115,12 @@
         <section class="page" data-page="settings">
           <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p>管理全局 HUD 与本机数据来源</p></div></div>
           <article class="panel-card setting-card"><div class="setting-row"><div><strong>全局置顶 HUD</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><div class="hud-setting-control"><span id="hudVisibilitySettings" class="setting-value" aria-live="polite"></span><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div></div>
+            <div class="setting-row"><div><strong>Codex 剩余用量报警</strong><p>5 小时或每周窗口的剩余比例低于或等于阈值时，对应数字和进度条会变为橙色；主界面和 HUD 同步显示。</p></div><label class="threshold-control"><input id="usageAlertThreshold" type="number" min="0" max="100" step="1" value="20" aria-label="Codex 剩余用量报警阈值"><span>%</span></label></div>
+            <div class="setting-row"><div><strong>DeepSeek 余额报警</strong><p>所选币种的账户余额低于或等于阈值时，余额显示变为橙色；HUD 会显示所选币种余额。</p></div><div class="threshold-control"><select id="deepSeekBalanceAlertCurrency" aria-label="DeepSeek 报警币种"><option value="CNY">人民币 ¥</option><option value="USD">美元 $</option></select><input id="deepSeekBalanceAlertThreshold" type="number" min="0" step="0.01" value="10" aria-label="DeepSeek 余额报警阈值"></div></div>
             <div class="setting-row"><div><strong>自动刷新</strong><p>每 30 秒更新账户摘要和用量。</p></div><span class="setting-value">已开启</span></div>
             <div class="setting-row"><div><strong>DeepSeek 登录</strong><p>通过 DeepSeek 官方浏览器授权，令牌只保存在 macOS 钥匙串。</p></div><button class="small-button primary-button" id="deepSeekLoginSettings">官方登录</button></div>
           </article>
-          <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">PRIVACY</div><h2>本机隐私</h2></div><span class="panel-icon">⌑</span></div><ul class="privacy-list"><li>Codex 登录令牌只用于向 chatgpt.com 请求当前用量。</li><li>DeepSeek 登录令牌保存在 macOS 钥匙串，只发送到 platform.deepseek.com。</li><li>本机 Token 统计仅读取会话投影中的 Token 计数，不上传会话内容。</li><li>HUD 位置、展开状态和开关状态保存在本机偏好设置中。</li></ul></article>
+          <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">PRIVACY</div><h2>本机隐私</h2></div><span class="panel-icon">⌑</span></div><ul class="privacy-list"><li>Codex 登录令牌只用于向 chatgpt.com 请求当前用量。</li><li>DeepSeek 登录令牌保存在 macOS 钥匙串，只发送到 platform.deepseek.com。</li><li>本机 Token 统计仅读取会话投影中的 Token 计数，不上传会话内容。</li><li>HUD 位置、展开状态、开关状态和用量报警阈值保存在本机偏好设置中。</li></ul></article>
         </section>
       </div>
     </main>

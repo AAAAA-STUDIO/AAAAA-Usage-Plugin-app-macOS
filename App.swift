@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private var refreshInFlight = false
     private var pageReady = false
     private var latestSnapshot: [String: Any] = [:]
+    private let usageAlertThresholdKey = "usage.alertThresholdPercent"
+    private let defaultUsageAlertThresholdPercent = 20
+    private let deepSeekBalanceAlertThresholdKey = "usage.deepSeekBalanceAlertThreshold"
+    private let deepSeekBalanceAlertCurrencyKey = "usage.deepSeekBalanceAlertCurrency"
+    private let defaultDeepSeekBalanceAlertThreshold = 10.0
 
     static func main() {
         let app = NSApplication.shared
@@ -46,6 +51,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         NSApp.activate(ignoringOtherApps: true)
 
         hud = HUDController()
+        hud.setUsageAlertThreshold(usageAlertThresholdPercent)
+        hud.setDeepSeekBalanceAlert(
+            threshold: deepSeekBalanceAlertThreshold,
+            currency: deepSeekBalanceAlertCurrency
+        )
+        hud.onStateChange = { [weak self] in
+            self?.pushHUDState()
+        }
+        hud.onOpenMainApp = { [weak self] in
+            guard let self else { return }
+            self.window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
         let page = Bundle.main.resourceURL!.appendingPathComponent("Resources/index.html")
         webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
 
@@ -77,6 +95,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             startDeepSeekLogout()
         case "toggleHUD":
             hud.setEnabled((body["enabled"] as? Bool) ?? false)
+            pushHUDState()
+        case "setUsageAlertThreshold":
+            guard let number = body["value"] as? NSNumber else { return }
+            let threshold = min(100, max(0, number.intValue))
+            UserDefaults.standard.set(threshold, forKey: usageAlertThresholdKey)
+            hud.setUsageAlertThreshold(threshold)
+            pushHUDState()
+        case "setDeepSeekBalanceAlert":
+            guard let number = body["threshold"] as? NSNumber else { return }
+            let threshold = max(0, number.doubleValue)
+            let currency = (body["currency"] as? String) == "USD" ? "USD" : "CNY"
+            UserDefaults.standard.set(threshold, forKey: deepSeekBalanceAlertThresholdKey)
+            UserDefaults.standard.set(currency, forKey: deepSeekBalanceAlertCurrencyKey)
+            hud.setDeepSeekBalanceAlert(threshold: threshold, currency: currency)
             pushHUDState()
         case "openUsage":
             NSWorkspace.shared.open(URL(string: "https://platform.deepseek.com/usage")!)
@@ -156,7 +188,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     private func pushHUDState() {
         guard pageReady else { return }
-        webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setHUDEnabled(\(hud.isEnabled()), \(hud.isVisible()));")
+        webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setUsageAlertThreshold(\(usageAlertThresholdPercent)); window.AAAAAUsage && window.AAAAAUsage.setDeepSeekBalanceAlert(\(deepSeekBalanceAlertThreshold), '\(deepSeekBalanceAlertCurrency)'); window.AAAAAUsage && window.AAAAAUsage.setHUDEnabled(\(hud.isEnabled()), \(hud.isVisible()));")
+    }
+
+    private var usageAlertThresholdPercent: Int {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: usageAlertThresholdKey) != nil else {
+            return defaultUsageAlertThresholdPercent
+        }
+        return min(100, max(0, defaults.integer(forKey: usageAlertThresholdKey)))
+    }
+
+    private var deepSeekBalanceAlertThreshold: Double {
+        let defaults = UserDefaults.standard
+        guard let value = defaults.object(forKey: deepSeekBalanceAlertThresholdKey) as? NSNumber else {
+            return defaultDeepSeekBalanceAlertThreshold
+        }
+        return max(0, value.doubleValue)
+    }
+
+    private var deepSeekBalanceAlertCurrency: String {
+        UserDefaults.standard.string(forKey: deepSeekBalanceAlertCurrencyKey) == "USD" ? "USD" : "CNY"
     }
 
     private func installMenu() {

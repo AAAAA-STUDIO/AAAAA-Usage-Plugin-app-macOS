@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#526fcb"/>
+      <stop offset="0.48" stop-color="#2c438a"/>
+      <stop offset="1" stop-color="#152342"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.38" r="0.58">
+      <stop offset="0" stop-color="#9eb6ff" stop-opacity="0.31"/>
+      <stop offset="1" stop-color="#9eb6ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="meter" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9c0ff"/>
+      <stop offset="0.62" stop-color="#66e2d0"/>
+      <stop offset="1" stop-color="#75e6bd"/>
+    </linearGradient>
+    <linearGradient id="bars" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d4e1ff"/>
+      <stop offset="1" stop-color="#8faaff" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="24" y="24" width="976" height="976" rx="228" fill="url(#background)"/>
+  <rect x="24" y="24" width="976" height="976" rx="228" fill="url(#halo)"/>
+  <rect x="34" y="34" width="956" height="956" rx="218" fill="none" stroke="#dce5ff" stroke-opacity="0.19" stroke-width="3"/>
+
+  <g transform="translate(0 -100)">
+  <path d="M252 570 A300 300 0 0 1 772 570" fill="none" stroke="#d7e1ff" stroke-opacity="0.19" stroke-width="66" stroke-linecap="round"/>
+  <path d="M252 570 A300 300 0 0 1 615 438" fill="none" stroke="url(#meter)" stroke-width="66" stroke-linecap="round"/>
+
+  <g stroke="#dfe8ff" stroke-opacity="0.5" stroke-width="12" stroke-linecap="round">
+    <path d="M354 532 L374 555"/>
+    <path d="M428 490 L438 518"/>
+    <path d="M512 475 L512 505"/>
+    <path d="M596 490 L586 518"/>
+    <path d="M670 532 L650 555"/>
+  </g>
+
+  <path d="M512 720 L585 521" fill="none" stroke="#ffd27a" stroke-width="25" stroke-linecap="round"/>
+  <circle cx="615" cy="438" r="22" fill="#ffd27a" stroke="#283e78" stroke-width="10"/>
+  <circle cx="512" cy="720" r="46" fill="#eaf0ff"/>
+  <circle cx="512" cy="720" r="19" fill="#75e0ce"/>
+
+  <g stroke-linecap="round" stroke-width="42">
+    <path d="M394 790 V858" stroke="url(#bars)"/>
+    <path d="M512 800 V858" stroke="#6ee0cb"/>
+    <path d="M630 780 V858" stroke="#ffd27a"/>
+  </g>
+  </g>
+</svg>
