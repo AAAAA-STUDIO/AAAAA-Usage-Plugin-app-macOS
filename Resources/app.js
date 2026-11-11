@@ -268,6 +268,7 @@
   }
 
   function setToolAvailability(tools) {
+    document.body.classList.remove("availability-pending");
     const codex = tools && tools.codex === true;
     const deepseek = tools && tools.deepseek === true;
     const hasAny = codex || deepseek;

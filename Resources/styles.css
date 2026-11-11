@@ -16,6 +16,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-width: 780px; min-height: 100%; background: var(--bg); color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif; }
 body { overflow: hidden; }
+body.availability-pending .shell { visibility: hidden; }
 button { color: inherit; font: inherit; cursor: pointer; }
 .shell { display: flex; width: 100vw; height: 100vh; min-height: 620px; }
 .sidebar { flex: 0 0 226px; display: flex; flex-direction: column; padding: 25px 15px 17px; background: var(--sidebar); border-right: 1px solid #252933; }
