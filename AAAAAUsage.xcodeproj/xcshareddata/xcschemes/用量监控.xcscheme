@@ -16,7 +16,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E00000000000000000000001"
                BuildableName = "&#x7528;&#x91cf;&#x76d1;&#x63a7;.app"
-               BlueprintName = "AAAAA Usage"
+               BlueprintName = "用量监控"
                ReferencedContainer = "container:AAAAAUsage.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -46,7 +46,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E00000000000000000000001"
             BuildableName = "&#x7528;&#x91cf;&#x76d1;&#x63a7;.app"
-            BlueprintName = "AAAAA Usage"
+            BlueprintName = "用量监控"
             ReferencedContainer = "container:AAAAAUsage.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -63,7 +63,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E00000000000000000000001"
             BuildableName = "&#x7528;&#x91cf;&#x76d1;&#x63a7;.app"
-            BlueprintName = "AAAAA Usage"
+            BlueprintName = "用量监控"
             ReferencedContainer = "container:AAAAAUsage.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

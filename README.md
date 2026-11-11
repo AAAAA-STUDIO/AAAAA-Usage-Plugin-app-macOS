@@ -18,7 +18,7 @@
 open AAAAAUsage.xcodeproj
 ```
 
-在 Xcode 中选择 `AAAAA Usage` scheme 后即可运行或构建。也可以执行 `./build-app.sh`，由 `xcodebuild` 构建并将应用放到 `build/AAAAA Usage.app`。本地构建使用 ad hoc 签名；公开分发前，需要用开发者证书签名并完成 Apple 公证。
+在 Xcode 中选择 `用量监控` scheme 后即可运行或构建。也可以执行 `./build-app.sh`，由 `xcodebuild` 构建并将应用放到 `build/用量监控.app`。本地构建使用 ad hoc 签名；公开分发前，需要用开发者证书签名并完成 Apple 公证。
 
 ## 数据与隐私
 

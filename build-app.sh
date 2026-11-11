@@ -10,7 +10,7 @@ PRODUCT_PATH="$DERIVED_DATA/Build/Products/Release/用量监控.app"
 xcodebuild \
   -quiet \
   -project "$SOURCE_DIR/AAAAAUsage.xcodeproj" \
-  -scheme "AAAAA Usage" \
+  -scheme "用量监控" \
   -configuration Release \
   -derivedDataPath "$DERIVED_DATA" \
   -destination 'platform=macOS' \

@@ -156,9 +156,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let menu = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        let hide = NSMenuItem(title: "隐藏 用量监控", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hide = NSMenuItem(title: "隐藏用量监控", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         hide.target = NSApp
-        let quit = NSMenuItem(title: "退出 用量监控", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "退出用量监控", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         appMenu.addItem(hide)
         appMenu.addItem(.separator())

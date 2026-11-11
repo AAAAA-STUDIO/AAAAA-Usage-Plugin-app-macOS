@@ -45,13 +45,13 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E00000000000000000000001 /* AAAAA Usage */ = {
+		E00000000000000000000001 /* 用量监控 */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F00000000000000000000002 /* Build configuration list for PBXNativeTarget "AAAAA Usage" */;
+			buildConfigurationList = F00000000000000000000002 /* Build configuration list for PBXNativeTarget "用量监控" */;
 			buildPhases = (C00000000000000000000002 /* Sources */, C00000000000000000000001 /* Frameworks */, C00000000000000000000003 /* Resources */, );
 			buildRules = ();
 			dependencies = ();
-			name = "AAAAA Usage";
+			name = "用量监控";
 			productName = "用量监控";
 			productReference = B00000000000000000000007 /* 用量监控.app */;
 			productType = "com.apple.product-type.application";
@@ -71,7 +71,7 @@
 			productRefGroup = D00000000000000000000002 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (E00000000000000000000001 /* AAAAA Usage */, );
+			targets = (E00000000000000000000001 /* 用量监控 */, );
 		};
 /* End PBXProject section */
 
@@ -92,7 +92,7 @@
 
 /* Begin XCConfigurationList section */
 			F00000000000000000000001 /* Build configuration list for PBXProject "AAAAA Usage" */ = {isa = XCConfigurationList; buildConfigurations = (F10000000000000000000001 /* Debug */, F10000000000000000000002 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-			F00000000000000000000002 /* Build configuration list for PBXNativeTarget "AAAAA Usage" */ = {isa = XCConfigurationList; buildConfigurations = (F10000000000000000000003 /* Debug */, F10000000000000000000004 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+			F00000000000000000000002 /* Build configuration list for PBXNativeTarget "用量监控" */ = {isa = XCConfigurationList; buildConfigurations = (F10000000000000000000003 /* Debug */, F10000000000000000000004 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = E00000000000000000000002 /* Project object */;
