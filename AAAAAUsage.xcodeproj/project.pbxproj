@@ -1,0 +1,99 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000001 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001 /* App.swift */; };
+		A00000000000000000000002 /* DeepSeekOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002 /* DeepSeekOAuth.swift */; };
+		A00000000000000000000003 /* HUDController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003 /* HUDController.swift */; };
+		A00000000000000000000004 /* UsageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* UsageProvider.swift */; };
+		A00000000000000000000005 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* Resources */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B00000000000000000000001 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		B00000000000000000000002 /* DeepSeekOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepSeekOAuth.swift; sourceTree = "<group>"; };
+		B00000000000000000000003 /* HUDController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDController.swift; sourceTree = "<group>"; };
+		B00000000000000000000004 /* UsageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageProvider.swift; sourceTree = "<group>"; };
+		B00000000000000000000005 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
+		B00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B00000000000000000000007 /* 用量监控.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "用量监控.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C00000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D00000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				B00000000000000000000001 /* App.swift */,
+				B00000000000000000000002 /* DeepSeekOAuth.swift */,
+				B00000000000000000000003 /* HUDController.swift */,
+				B00000000000000000000004 /* UsageProvider.swift */,
+				B00000000000000000000005 /* Resources */,
+				B00000000000000000000006 /* Info.plist */,
+				D00000000000000000000002 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D00000000000000000000002 /* Products */ = {isa = PBXGroup; children = (B00000000000000000000007 /* 用量监控.app */, ); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E00000000000000000000001 /* AAAAA Usage */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F00000000000000000000002 /* Build configuration list for PBXNativeTarget "AAAAA Usage" */;
+			buildPhases = (C00000000000000000000002 /* Sources */, C00000000000000000000001 /* Frameworks */, C00000000000000000000003 /* Resources */, );
+			buildRules = ();
+			dependencies = ();
+			name = "AAAAA Usage";
+			productName = "用量监控";
+			productReference = B00000000000000000000007 /* 用量监控.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E00000000000000000000002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2720; LastUpgradeCheck = 2720; TargetAttributes = {E00000000000000000000001 = {CreatedOnToolsVersion = 27.2; }; }; };
+			buildConfigurationList = F00000000000000000000001 /* Build configuration list for PBXProject "AAAAA Usage" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base, zh_CN, );
+			mainGroup = D00000000000000000000001;
+			productRefGroup = D00000000000000000000002 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (E00000000000000000000001 /* AAAAA Usage */, );
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C00000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000005 /* Resources in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C00000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000001 /* App.swift in Sources */, A00000000000000000000002 /* DeepSeekOAuth.swift in Sources */, A00000000000000000000003 /* HUDController.swift in Sources */, A00000000000000000000004 /* UsageProvider.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+			F10000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; SDKROOT = macosx; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+			F10000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; SDKROOT = macosx; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+			F10000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 1; ENABLE_APP_SANDBOX = NO; EXECUTABLE_NAME = AAAAAUsage; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = studio.aaaaa.usage; PRODUCT_NAME = "用量监控"; SUPPORTED_PLATFORMS = macosx; SWIFT_VERSION = 5.0; }; name = Debug; };
+			F10000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 1; ENABLE_APP_SANDBOX = NO; EXECUTABLE_NAME = AAAAAUsage; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Info.plist; MACOSX_DEPLOYMENT_TARGET = 13.0; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = studio.aaaaa.usage; PRODUCT_NAME = "用量监控"; SUPPORTED_PLATFORMS = macosx; SWIFT_VERSION = 5.0; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+			F00000000000000000000001 /* Build configuration list for PBXProject "AAAAA Usage" */ = {isa = XCConfigurationList; buildConfigurations = (F10000000000000000000001 /* Debug */, F10000000000000000000002 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+			F00000000000000000000002 /* Build configuration list for PBXNativeTarget "AAAAA Usage" */ = {isa = XCConfigurationList; buildConfigurations = (F10000000000000000000003 /* Debug */, F10000000000000000000004 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = E00000000000000000000002 /* Project object */;
+}
