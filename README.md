@@ -38,13 +38,27 @@ open AAAAAUsage.xcodeproj
 
 用量监控由我独立开发和维护。如果它帮你省下了查用量的时间，欢迎自愿请我喝杯咖啡。赞助将用于后续适配、问题修复和功能改进；是否赞助不会影响任何功能。可使用微信支付或支付宝扫码：
 
-<p align="center">
-  <img src="Resources/feedback-qr.png" alt="腾讯频道反馈二维码" width="220">
-  <img src="Resources/sponsor-wechat-qr.png" alt="微信支付赞助二维码" width="220">
-  <img src="Resources/sponsor-alipay-qr.png" alt="支付宝赞助二维码" width="220">
-</p>
-
-<p align="center">反馈与建议 · 微信支付赞助 · 支付宝赞助</p>
+<table>
+  <thead>
+    <tr>
+      <th align="center">反馈与建议 · 腾讯频道</th>
+      <th align="center">赞助 · 微信支付</th>
+      <th align="center">赞助 · 支付宝</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center"><img src="Resources/feedback-qr.png" alt="腾讯频道反馈二维码" width="200"></td>
+      <td align="center"><img src="Resources/sponsor-wechat-qr.png" alt="微信支付赞助二维码" width="200"></td>
+      <td align="center"><img src="Resources/sponsor-alipay-qr.png" alt="支付宝赞助二维码" width="200"></td>
+    </tr>
+    <tr>
+      <td align="center">使用 QQ 扫码加入腾讯频道<br>频道号：<code>pd93266932</code></td>
+      <td align="center">使用微信扫一扫，支持后续开发与维护</td>
+      <td align="center">使用支付宝扫一扫，支持后续开发与维护</td>
+    </tr>
+  </tbody>
+</table>
 
 ## 数据与隐私
 
