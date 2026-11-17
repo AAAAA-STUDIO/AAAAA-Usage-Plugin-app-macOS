@@ -7,19 +7,37 @@ import WebKit
 final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private let provider = UsageProvider()
     private let kimiClient = KimiAccountClient()
-    private var availableTools = ToolAvailability.detect()
+    private var detectedTools = ToolAvailability.detect()
+    private var enabledTools: [String: Bool] = [
+        "codex": UserDefaults.standard.object(forKey: "usage.toolEnabled.codex") as? Bool ?? false,
+        "deepseek": UserDefaults.standard.object(forKey: "usage.toolEnabled.deepseek") as? Bool ?? false,
+        "kimi": UserDefaults.standard.object(forKey: "usage.toolEnabled.kimi") as? Bool ?? false
+    ]
+    private var availableTools: ToolAvailability {
+        ToolAvailability(
+            codex: detectedTools.codex && enabledTools["codex"] == true,
+            deepSeek: detectedTools.deepSeek && enabledTools["deepseek"] == true,
+            kimi: detectedTools.kimi && enabledTools["kimi"] == true
+        )
+    }
     private var window: NSWindow!
     private var webView: WKWebView!
     private var hud: HUDController!
+    private var menuBarExpandedHUD: HUDController!
     private var menuBarUsage: MenuBarUsageController!
     private var refreshTimer: Timer?
     private var refreshInFlight = false
+    private var refreshTask: Task<Void, Never>?
+    private var refreshGeneration = 0
     private var todayTokenRefreshInFlight = false
+    private var todayTokenRefreshTask: Task<Void, Never>?
+    private var todayTokenRefreshGeneration = 0
     private var pageReady = false
     private let autoRefreshEnabledKey = "usage.autoRefreshEnabled"
     private let menuBarHUDEnabledKey = "usage.menuBarHUDEnabled"
     private let modelHUDVisibilityKeyPrefix = "usage.modelHUDVisibility"
     private var latestSnapshot: [String: Any] = [:]
+    private var sessionDetailTasks: [String: (provider: String, task: Task<Void, Never>)] = [:]
     private var kimiRefreshAfterOpenTask: Task<Void, Never>?
     private var kimiAppObservers: [NSObjectProtocol] = []
     private var kimiLastMonthlyReadAt: Date?
@@ -36,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         "error": "正在读取本机 Kimi 桌面会话。"
     ]
     private var kimiQueryInFlight = false
+    private var kimiQueryTask: Task<Void, Never>?
+    private var kimiQueryGeneration = 0
     private let usageAlertThresholdKey = "usage.alertThresholdPercent"
     private let defaultUsageAlertThresholdPercent = 20
     private let kimiMonthlyAlertThresholdKey = "usage.kimiMonthlyAlertThresholdPercent"
@@ -43,6 +63,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private let deepSeekBalanceAlertThresholdKey = "usage.deepSeekBalanceAlertThreshold"
     private let deepSeekBalanceAlertCurrencyKey = "usage.deepSeekBalanceAlertCurrency"
     private let defaultDeepSeekBalanceAlertThreshold = 10.0
+
+    private static var emptyKimiUsage: [String: Any] {
+        [
+            "available": false, "sessionDetected": false, "source": "none",
+            "sessions": [], "sessionsReason": "当前 Kimi 本机用量读取路径不提供对话历史",
+            "monthly": NSNull(), "fiveHour": NSNull(), "codeFiveHour": NSNull(),
+            "codeWeekly": NSNull(),
+            "tokens": [
+                "available": false, "sessions": 0, "inputTokens": 0,
+                "cacheReadTokens": 0, "outputTokens": 0, "totalTokens": 0,
+                "reason": "Kimi 会员额度接口不提供 Token 分项统计"
+            ],
+            "error": ""
+        ]
+    }
 
     static func main() {
         let app = NSApplication.shared
@@ -94,6 +129,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         hud.onRefresh = { [weak self] in
             self?.refresh()
         }
+        menuBarExpandedHUD = HUDController(
+            availableTools: availableTools,
+            presentationMode: .menuBarPopover
+        )
+        menuBarExpandedHUD.setProviderVisibility(modelProviderVisibility(for: "menuBarHUD"))
+        menuBarExpandedHUD.setUsageAlertThreshold(usageAlertThresholdPercent)
+        menuBarExpandedHUD.setKimiMonthlyAlertThreshold(kimiMonthlyAlertThresholdPercent)
+        menuBarExpandedHUD.setDeepSeekBalanceAlert(
+            threshold: deepSeekBalanceAlertThreshold,
+            currency: deepSeekBalanceAlertCurrency
+        )
+        menuBarExpandedHUD.onOpenMainApp = { [weak self] in
+            guard let self else { return }
+            self.window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        menuBarExpandedHUD.onRefresh = { [weak self] in
+            self?.refresh()
+        }
         menuBarUsage = MenuBarUsageController(availableTools: availableTools)
         menuBarUsage.onRefresh = { [weak self] in
             self?.refresh()
@@ -103,9 +157,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             self.window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
+        menuBarUsage.onToggleExpanded = { [weak self] anchorView in
+            self?.menuBarExpandedHUD.toggleMenuBarPopover(relativeTo: anchorView)
+        }
+        menuBarExpandedHUD.onDisableMenuBarHUD = { [weak self] in
+            self?.disableMenuBarHUD()
+        }
         menuBarUsage.setDeepSeekBalanceCurrency(deepSeekBalanceAlertCurrency)
         menuBarUsage.setProviderVisibility(modelProviderVisibility(for: "menuBarHUD"))
         menuBarUsage.setEnabled(menuBarHUDEnabled)
+        menuBarExpandedHUD.setEnabled(menuBarHUDEnabled)
         let page = Bundle.main.resourceURL!.appendingPathComponent("Resources/index.html")
         webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
         observeKimiAppLifecycle()
@@ -148,6 +209,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             updateAutoRefreshTimer()
             if enabled { refresh() }
             pushHUDState()
+        case "setToolEnabled":
+            guard let tool = body["tool"] as? String,
+                  ["codex", "deepseek", "kimi"].contains(tool),
+                  let enabled = body["enabled"] as? Bool else { return }
+            setToolEnabled(tool, enabled: enabled)
         case "connectKimi":
             guard availableTools.kimi else { return }
             openKimiDesktop()
@@ -177,6 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             let enabled = (body["enabled"] as? Bool) ?? false
             UserDefaults.standard.set(enabled, forKey: menuBarHUDEnabledKey)
             menuBarUsage.setEnabled(enabled)
+            menuBarExpandedHUD.setEnabled(enabled)
             if enabled { refresh() }
             pushHUDState()
         case "setModelHUDVisibility":
@@ -190,7 +257,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                 forKey: "\(modelHUDVisibilityKeyPrefix).\(surface).\(provider)"
             )
             hud.setProviderVisibility(modelProviderVisibility(for: "globalHUD"))
-            menuBarUsage.setProviderVisibility(modelProviderVisibility(for: "menuBarHUD"))
+            let menuBarVisibility = modelProviderVisibility(for: "menuBarHUD")
+            menuBarUsage.setProviderVisibility(menuBarVisibility)
+            menuBarExpandedHUD.setProviderVisibility(menuBarVisibility)
             pushHUDState()
         case "moveHUDToDisplay":
             guard availableTools.hasAny,
@@ -203,6 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             let threshold = min(100, max(0, number.intValue))
             UserDefaults.standard.set(threshold, forKey: usageAlertThresholdKey)
             hud.setUsageAlertThreshold(threshold)
+            menuBarExpandedHUD.setUsageAlertThreshold(threshold)
             pushHUDState()
         case "setKimiMonthlyAlertThreshold":
             guard availableTools.kimi else { return }
@@ -210,6 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             let threshold = min(100, max(0, number.intValue))
             UserDefaults.standard.set(threshold, forKey: kimiMonthlyAlertThresholdKey)
             hud.setKimiMonthlyAlertThreshold(threshold)
+            menuBarExpandedHUD.setKimiMonthlyAlertThreshold(threshold)
             pushHUDState()
         case "setDeepSeekBalanceAlert":
             guard availableTools.deepSeek else { return }
@@ -219,6 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             UserDefaults.standard.set(threshold, forKey: deepSeekBalanceAlertThresholdKey)
             UserDefaults.standard.set(currency, forKey: deepSeekBalanceAlertCurrencyKey)
             hud.setDeepSeekBalanceAlert(threshold: threshold, currency: currency)
+            menuBarExpandedHUD.setDeepSeekBalanceAlert(threshold: threshold, currency: currency)
             menuBarUsage.setDeepSeekBalanceCurrency(currency)
             pushHUDState()
         case "openUsage":
@@ -233,13 +305,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                   let requestID = body["requestId"] as? String,
                   (providerName == "codex" && availableTools.codex)
                     || (providerName == "deepseek" && availableTools.deepSeek) else { return }
-            Task { [weak self] in
+            let detailTask = Task { [weak self] in
                 guard let self else { return }
+                defer { self.sessionDetailTasks.removeValue(forKey: requestID) }
+                guard !Task.isCancelled else { return }
                 var detail = await self.provider.sessionDetail(provider: providerName, sessionID: sessionID)
+                guard !Task.isCancelled,
+                    (providerName == "codex" && self.availableTools.codex)
+                    || (providerName == "deepseek" && self.availableTools.deepSeek) else { return }
                 detail["provider"] = providerName
                 detail["requestId"] = requestID
                 self.sendSessionDetail(detail)
             }
+            sessionDetailTasks[requestID] = (providerName, detailTask)
         default:
             break
         }
@@ -248,6 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         pageReady = true
         pushToolAvailability()
+        pushToolSettings()
         pushHUDState()
         if !latestSnapshot.isEmpty { sendSnapshot(latestSnapshot) }
     }
@@ -266,21 +345,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         }
     }
 
+    private func disableMenuBarHUD() {
+        UserDefaults.standard.set(false, forKey: menuBarHUDEnabledKey)
+        menuBarUsage.setEnabled(false)
+        menuBarExpandedHUD.setEnabled(false)
+        pushHUDState()
+    }
+
     private func refresh() {
         guard availableTools.hasAny else { return }
         requestKimiQuota()
         guard !refreshInFlight else { return }
         refreshInFlight = true
         let refreshingTools = availableTools
-        Task {
+        let generation = refreshGeneration
+        refreshTask = Task {
             var snapshot = await provider.snapshot(availableTools: refreshingTools)
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
             snapshot["kimi"] = latestKimiUsage
             preserveTodayTokenUsage(from: latestSnapshot, in: &snapshot)
-            latestSnapshot = snapshot
-            hud.render(snapshot)
-            menuBarUsage.render(snapshot)
-            sendSnapshot(snapshot)
+            latestSnapshot = filteredSnapshot(snapshot)
+            hud.render(latestSnapshot)
+            menuBarUsage.render(latestSnapshot)
+            menuBarExpandedHUD.render(latestSnapshot)
+            sendSnapshot(latestSnapshot)
             refreshInFlight = false
+            refreshTask = nil
             refreshTodayTokenUsage(availableTools: refreshingTools)
         }
     }
@@ -288,11 +378,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private func refreshTodayTokenUsage(availableTools: ToolAvailability) {
         guard !todayTokenRefreshInFlight else { return }
         todayTokenRefreshInFlight = true
-        Task {
+        let generation = todayTokenRefreshGeneration
+        todayTokenRefreshTask = Task {
             let todayUsage = await provider.todayTokenSnapshot(availableTools: availableTools)
+            guard !Task.isCancelled, generation == todayTokenRefreshGeneration else { return }
             todayTokenRefreshInFlight = false
+            todayTokenRefreshTask = nil
             guard !latestSnapshot.isEmpty else { return }
             for name in ["codex", "deepseek"] {
+                guard self.availableTools.dictionary[name] == true else { continue }
                 guard let updates = todayUsage[name] as? [String: Any],
                       var model = latestSnapshot[name] as? [String: Any],
                       var tokens = model["tokens"] as? [String: Any] else { continue }
@@ -303,6 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             }
             hud.render(latestSnapshot)
             menuBarUsage.render(latestSnapshot)
+            menuBarExpandedHUD.render(latestSnapshot)
             sendSnapshot(latestSnapshot)
         }
     }
@@ -322,13 +417,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     private func checkToolAvailability() {
-        availableTools = ToolAvailability.detect()
+        detectedTools = ToolAvailability.detect()
+        applyToolAvailability(refreshIfNeeded: true)
+    }
+
+    private func setToolEnabled(_ tool: String, enabled: Bool) {
+        guard enabledTools[tool] != enabled else { return }
+        enabledTools[tool] = enabled
+        UserDefaults.standard.set(enabled, forKey: "usage.toolEnabled.\(tool)")
+
+        cancelProviderWork()
+        if !enabled {
+            let detailRequestIDs = sessionDetailTasks
+                .filter { $0.value.provider == tool }
+                .map(\.key)
+            for requestID in detailRequestIDs {
+                sessionDetailTasks.removeValue(forKey: requestID)?.task.cancel()
+            }
+            latestSnapshot.removeValue(forKey: tool)
+            if tool == "kimi" {
+                kimiRefreshAfterOpenTask?.cancel()
+                kimiRefreshAfterOpenTask = nil
+                kimiQueryGeneration += 1
+                kimiQueryTask?.cancel()
+                kimiQueryTask = nil
+                kimiQueryInFlight = false
+                kimiLastMonthlyReadAt = nil
+                latestKimiUsage = Self.emptyKimiUsage
+            }
+            latestSnapshot = filteredSnapshot(latestSnapshot)
+            hud.render(latestSnapshot)
+            menuBarUsage.render(latestSnapshot)
+            menuBarExpandedHUD.render(latestSnapshot)
+            sendSnapshot(latestSnapshot)
+        }
+        applyToolAvailability(refreshIfNeeded: true)
+    }
+
+    private func applyToolAvailability(refreshIfNeeded: Bool) {
         hud.setToolAvailability(availableTools)
         menuBarUsage.setToolAvailability(availableTools)
+        menuBarExpandedHUD.setToolAvailability(availableTools)
+        latestSnapshot = filteredSnapshot(latestSnapshot)
+        hud.render(latestSnapshot)
+        menuBarUsage.render(latestSnapshot)
+        menuBarExpandedHUD.render(latestSnapshot)
         pushToolAvailability()
+        pushToolSettings()
         pushHUDState()
         updateAutoRefreshTimer()
-        if availableTools.hasAny { refresh() }
+        if refreshIfNeeded && availableTools.hasAny { refresh() }
+    }
+
+    private func cancelProviderWork() {
+        refreshGeneration += 1
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshInFlight = false
+        todayTokenRefreshGeneration += 1
+        todayTokenRefreshTask?.cancel()
+        todayTokenRefreshTask = nil
+        todayTokenRefreshInFlight = false
+    }
+
+    private func filteredSnapshot(_ snapshot: [String: Any]) -> [String: Any] {
+        var filtered = snapshot
+        filtered["tools"] = availableTools.dictionary
+        if !availableTools.codex { filtered.removeValue(forKey: "codex") }
+        if !availableTools.deepSeek { filtered.removeValue(forKey: "deepseek") }
+        if !availableTools.kimi { filtered.removeValue(forKey: "kimi") }
+        return filtered
     }
 
     private func updateAutoRefreshTimer() {
@@ -346,8 +504,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private func requestKimiQuota() {
         guard availableTools.kimi, !kimiQueryInFlight else { return }
         kimiQueryInFlight = true
-        Task {
+        let generation = kimiQueryGeneration
+        kimiQueryTask = Task {
             var usage = await self.kimiClient.fetchUsage()
+            guard generation == self.kimiQueryGeneration else { return }
+            guard !Task.isCancelled, self.availableTools.kimi else {
+                self.kimiQueryInFlight = false
+                self.kimiQueryTask = nil
+                return
+            }
             usage["sessions"] = []
             usage["sessionsReason"] = "当前 Kimi 桌面会员接口不提供对话历史"
             self.latestKimiUsage = usage
@@ -355,6 +520,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                 self.kimiLastMonthlyReadAt = Date()
             }
             self.kimiQueryInFlight = false
+            self.kimiQueryTask = nil
             self.updateSnapshotWithKimiUsage()
         }
     }
@@ -366,7 +532,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
                 guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                       app.bundleIdentifier == "com.moonshot.kimichat" else { return }
-                self?.refreshKimiAfterDesktopOpens()
+                Task { @MainActor in
+                    self?.refreshKimiAfterDesktopOpens()
+                }
             }
             kimiAppObservers.append(observer)
         }
@@ -388,11 +556,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     private func refreshKimiAfterDesktopOpens() {
+        guard availableTools.kimi else { return }
         kimiRefreshAfterOpenTask?.cancel()
         kimiRefreshAfterOpenTask = Task { [weak self] in
             // The Kimi desktop app renews its session when its Chat surface makes a
             // request. Keep rereading its own session store while that startup settles.
-            guard let self else { return }
+            guard let self, self.availableTools.kimi else { return }
             let priorMonthlyReadAt = self.kimiLastMonthlyReadAt
             self.requestKimiQuota()
             for delay in [15, 30, 60, 90] {
@@ -402,6 +571,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                     return
                 }
                 guard !Task.isCancelled else { return }
+                guard self.availableTools.kimi else { return }
                 if let lastReadAt = self.kimiLastMonthlyReadAt,
                    lastReadAt > (priorMonthlyReadAt ?? .distantPast) {
                     return
@@ -447,22 +617,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     }
 
     private func updateSnapshotWithKimiUsage() {
-        guard !latestSnapshot.isEmpty else { return }
+        guard availableTools.kimi, !latestSnapshot.isEmpty else { return }
         latestSnapshot["kimi"] = latestKimiUsage
         hud.render(latestSnapshot)
         menuBarUsage.render(latestSnapshot)
+        menuBarExpandedHUD.render(latestSnapshot)
         sendSnapshot(latestSnapshot)
     }
 
     private func sendSnapshot(_ snapshot: [String: Any]) {
         guard pageReady,
-              let data = try? JSONSerialization.data(withJSONObject: snapshot, options: [.fragmentsAllowed]),
+              let data = try? JSONSerialization.data(withJSONObject: filteredSnapshot(snapshot), options: [.fragmentsAllowed]),
               let json = String(data: data, encoding: .utf8) else { return }
         webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.render(\(json));")
     }
 
     private func sendSessionDetail(_ detail: [String: Any]) {
         guard pageReady,
+              let provider = detail["provider"] as? String,
+              (provider == "codex" && availableTools.codex)
+                || (provider == "deepseek" && availableTools.deepSeek),
               let data = try? JSONSerialization.data(withJSONObject: detail, options: [.fragmentsAllowed]),
               let json = String(data: data, encoding: .utf8) else { return }
         webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.receiveSessionDetail(\(json));")
@@ -482,6 +656,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
               let data = try? JSONSerialization.data(withJSONObject: availableTools.dictionary),
               let json = String(data: data, encoding: .utf8) else { return }
         webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setToolAvailability(\(json));")
+    }
+
+    private func pushToolSettings() {
+        guard pageReady,
+              let enabledData = try? JSONSerialization.data(withJSONObject: enabledTools),
+              let enabledJSON = String(data: enabledData, encoding: .utf8),
+              let detectedData = try? JSONSerialization.data(withJSONObject: detectedTools.dictionary),
+              let detectedJSON = String(data: detectedData, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.AAAAAUsage && window.AAAAAUsage.setToolSettings(\(enabledJSON), \(detectedJSON));")
     }
 
     private var usageAlertThresholdPercent: Int {
@@ -569,6 +752,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 private final class MenuBarUsageController: NSObject {
     var onRefresh: (() -> Void)?
     var onOpenMainApp: (() -> Void)?
+    var onToggleExpanded: ((NSView) -> Void)?
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var availableTools: ToolAvailability
@@ -722,7 +906,9 @@ private final class MenuBarUsageController: NSObject {
             with: NSSize(width: 10_000, height: 100),
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         ).width
-        statusItem.length = ceil(max(title.size().width, measuredWidth) + 15)
+        let finiteWidths = [title.size().width, measuredWidth].filter { $0.isFinite && $0 >= 0 }
+        let contentWidth = finiteWidths.max() ?? 0
+        statusItem.length = ceil(min(600, max(48, contentWidth + 15)))
         displayPanels.values.compactMap { $0.contentView as? MenuBarHUDStatusView }
             .forEach { $0.setTitle(title) }
         DispatchQueue.main.async { [weak self] in self?.refreshDisplayPanels() }
@@ -750,6 +936,10 @@ private final class MenuBarUsageController: NSObject {
 
         for screen in screens {
             let id = displayID(for: screen)
+            guard isReasonableRect(screen.frame) else {
+                displayPanels[id]?.orderOut(nil)
+                continue
+            }
             let panel = displayPanels[id] ?? makePanel(for: id)
             let frame = NSRect(
                 x: screen.frame.maxX - placement.rightInset - placement.size.width,
@@ -757,6 +947,10 @@ private final class MenuBarUsageController: NSObject {
                 width: placement.size.width,
                 height: placement.size.height
             )
+            guard isReasonableRect(frame, maxWidth: 700, maxHeight: 100) else {
+                panel.orderOut(nil)
+                continue
+            }
             if !NSEqualRects(panel.frame, frame) {
                 panel.setFrame(frame, display: true)
             }
@@ -784,10 +978,14 @@ private final class MenuBarUsageController: NSObject {
         contentView.onClick = { [weak self] count in
             self?.handleStatusItemClick(clickCount: count)
         }
+        contentView.onRightClick = { [weak self, weak contentView] in
+            guard let contentView else { return }
+            self?.onToggleExpanded?(contentView)
+        }
         contentView.setAccessibilityElement(true)
         contentView.setAccessibilityRole(.button)
         contentView.setAccessibilityLabel("用量监控菜单栏用量")
-        contentView.toolTip = "单击刷新用量，双击打开用量监控"
+        contentView.toolTip = "单击刷新用量，双击打开用量监控，右键展开 HUD"
 
         let panel = MenuBarHUDPanel(
             contentRect: .zero,
@@ -815,16 +1013,35 @@ private final class MenuBarUsageController: NSObject {
         guard let button = statusItem.button,
               let window = button.window else { return nil }
         let itemRect = window.convertToScreen(button.convert(button.bounds, to: nil))
+        guard isReasonableRect(itemRect, maxWidth: 700, maxHeight: 100) else { return nil }
         let screen = window.screen
             ?? screens.first(where: { $0.frame.intersects(itemRect) })
             ?? screens.first
-        guard let screen, itemRect.width > 0, itemRect.height > 0 else { return nil }
+        guard let screen, isReasonableRect(screen.frame) else { return nil }
+        let rightInset = screen.frame.maxX - itemRect.maxX
+        let topInset = screen.frame.maxY - itemRect.maxY
+        guard rightInset.isFinite, topInset.isFinite,
+              abs(rightInset) <= 100_000, abs(topInset) <= 100_000 else { return nil }
         return (
             screen,
-            max(0, screen.frame.maxX - itemRect.maxX),
-            max(0, screen.frame.maxY - itemRect.maxY),
+            max(0, rightInset),
+            max(0, topInset),
             itemRect.size
         )
+    }
+
+    private func isReasonableRect(
+        _ rect: NSRect,
+        maxWidth: CGFloat = 100_000,
+        maxHeight: CGFloat = 100_000
+    ) -> Bool {
+        [rect.minX, rect.minY, rect.width, rect.height].allSatisfy { $0.isFinite }
+            && abs(rect.minX) <= 100_000
+            && abs(rect.minY) <= 100_000
+            && rect.width > 0
+            && rect.width <= maxWidth
+            && rect.height > 0
+            && rect.height <= maxHeight
     }
 
     private func displayID(for screen: NSScreen) -> UInt32 {
@@ -897,6 +1114,7 @@ private final class MenuBarHUDPanel: NSPanel {
 @MainActor
 private final class MenuBarHUDStatusView: NSView {
     var onClick: ((Int) -> Void)?
+    var onRightClick: (() -> Void)?
     private var title = NSAttributedString(string: "")
     private let materialView = NSVisualEffectView(frame: .zero)
     private let tintView = NSView(frame: .zero)
@@ -935,6 +1153,9 @@ private final class MenuBarHUDStatusView: NSView {
     }
 
     override func setFrameSize(_ newSize: NSSize) {
+        guard newSize.width.isFinite, newSize.height.isFinite,
+              newSize.width >= 0, newSize.width <= 700,
+              newSize.height >= 0, newSize.height <= 100 else { return }
         super.setFrameSize(newSize)
         needsLayout = true
     }
@@ -942,12 +1163,23 @@ private final class MenuBarHUDStatusView: NSView {
     func setTitle(_ value: NSAttributedString) {
         title = value.copy() as? NSAttributedString ?? value
         titleField.attributedStringValue = title
-        titleField.sizeToFit()
         needsLayout = true
     }
 
     override func layout() {
         super.layout()
+        let bounds = self.bounds
+        guard [bounds.minX, bounds.minY, bounds.width, bounds.height]
+            .allSatisfy({ $0.isFinite }),
+              abs(bounds.minX) <= 100_000,
+              abs(bounds.minY) <= 100_000,
+              bounds.width >= 2, bounds.width <= 700,
+              bounds.height >= 2, bounds.height <= 100 else {
+            materialView.frame = .zero
+            tintView.frame = .zero
+            titleField.frame = .zero
+            return
+        }
         let capsuleRect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let radius = max(0, capsuleRect.height / 2)
         layer?.cornerRadius = radius
@@ -984,5 +1216,9 @@ private final class MenuBarHUDStatusView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         onClick?(event.clickCount)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
     }
 }

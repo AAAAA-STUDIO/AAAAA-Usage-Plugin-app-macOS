@@ -2,14 +2,22 @@ import AppKit
 import CoreGraphics
 import Foundation
 
+enum HUDPresentationMode: Equatable {
+    case floating
+    case menuBarPopover
+}
+
 @MainActor
 final class HUDController {
     var onStateChange: (() -> Void)?
     var onOpenMainApp: (() -> Void)?
     var onRefresh: (() -> Void)?
+    var onDisableMenuBarHUD: (() -> Void)?
 
     private let defaults = UserDefaults.standard
+    private let presentationMode: HUDPresentationMode
     private let panel: NSPanel
+    private var menuBarPopover: NSPopover?
     private let rootView: MovableHUDView
     private let compactStack: NSStackView
     private let expandedStack: NSStackView
@@ -20,6 +28,9 @@ final class HUDController {
     private let deepSeekCard: HUDMetricCard
     private let kimiCard: HUDMetricCard
     private var expandedMetricsHeightConstraint: NSLayoutConstraint!
+    private var codexCardHeightConstraint: NSLayoutConstraint!
+    private var deepSeekCardHeightConstraint: NSLayoutConstraint!
+    private var kimiCardHeightConstraint: NSLayoutConstraint!
     private let compactCodexValue: NSTextField
     private let compactDeepSeekValue: NSTextField
     private let compactKimiValue: NSTextField
@@ -58,7 +69,7 @@ final class HUDController {
 
     private static let panelWidth: CGFloat = 368
     private static let collapsedHeight: CGFloat = 79
-    private var expandedHeight: CGFloat = 236
+    private var expandedHeight: CGFloat = 328
     private static var collapsedSize: NSSize {
         NSSize(width: panelWidth, height: collapsedHeight)
     }
@@ -66,8 +77,12 @@ final class HUDController {
         NSSize(width: Self.panelWidth, height: expandedHeight)
     }
 
-    init(availableTools: ToolAvailability) {
-        let root = MovableHUDView(frame: NSRect(origin: .zero, size: Self.collapsedSize))
+    init(availableTools: ToolAvailability, presentationMode: HUDPresentationMode = .floating) {
+        self.presentationMode = presentationMode
+        let root = MovableHUDView(
+            frame: NSRect(origin: .zero, size: Self.collapsedSize),
+            supportsDragging: presentationMode == .floating
+        )
         root.material = .hudWindow
         root.blendingMode = .behindWindow
         root.state = .active
@@ -122,10 +137,10 @@ final class HUDController {
         compactTime.setContentHuggingPriority(.required, for: .horizontal)
         compactRefreshButton.setContentHuggingPriority(.required, for: .horizontal)
         compactExpandButton.setContentHuggingPriority(.required, for: .horizontal)
-        compactRefreshButton.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        compactRefreshButton.heightAnchor.constraint(equalToConstant: 26).isActive = true
-        compactExpandButton.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        compactExpandButton.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        compactRefreshButton.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        compactRefreshButton.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        compactExpandButton.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        compactExpandButton.heightAnchor.constraint(equalToConstant: 24).isActive = true
 
         let compactCodexMetric = HUDCompactMetric(
             value: compactCodex, icon: Self.providerIcon("chatgpt-icon")
@@ -158,11 +173,15 @@ final class HUDController {
         let openButton = Self.button(
             symbol: "macwindow", fallback: "窗口", accessibilityLabel: "打开主窗口"
         )
+        let collapseLabel = presentationMode == .floating
+            ? "折叠用量监控"
+            : "收起菜单栏 HUD 展开面板"
         let collapseButton = Self.button(
-            symbol: "chevron.down", fallback: "⌄", accessibilityLabel: "折叠用量监控"
+            symbol: "chevron.down", fallback: "⌄", accessibilityLabel: collapseLabel
         )
+        let closeLabel = presentationMode == .floating ? "关闭悬浮窗" : "关闭菜单栏 HUD"
         let closeButton = Self.button(
-            symbol: "xmark", fallback: "×", accessibilityLabel: "关闭悬浮窗"
+            symbol: "xmark", fallback: "×", accessibilityLabel: closeLabel
         )
         let header = NSStackView(views: [expandedBrandIcon, headerTitle, NSView(), openButton, collapseButton, closeButton])
         header.orientation = .horizontal
@@ -212,9 +231,15 @@ final class HUDController {
         codexCard.widthAnchor.constraint(equalTo: metrics.widthAnchor).isActive = true
         deepSeekCard.widthAnchor.constraint(equalTo: metrics.widthAnchor).isActive = true
         kimiCard.widthAnchor.constraint(equalTo: metrics.widthAnchor).isActive = true
-        codexCard.heightAnchor.constraint(equalToConstant: 76).isActive = true
-        deepSeekCard.heightAnchor.constraint(equalToConstant: 76).isActive = true
-        kimiCard.heightAnchor.constraint(equalToConstant: 76).isActive = true
+        codexCardHeightConstraint = codexCard.heightAnchor.constraint(equalToConstant: 76)
+        deepSeekCardHeightConstraint = deepSeekCard.heightAnchor.constraint(equalToConstant: 76)
+        kimiCardHeightConstraint = kimiCard.heightAnchor.constraint(equalToConstant: 76)
+        codexCardHeightConstraint.priority = .defaultHigh
+        deepSeekCardHeightConstraint.priority = .defaultHigh
+        kimiCardHeightConstraint.priority = .defaultHigh
+        codexCardHeightConstraint.isActive = true
+        deepSeekCardHeightConstraint.isActive = true
+        kimiCardHeightConstraint.isActive = true
 
         tokenValue = Self.label("今日 Token 合计  —", size: 11, weight: .medium, color: .white)
         updatedValue = Self.label("等待数据", size: 10, weight: .regular, color: .white.withAlphaComponent(0.68))
@@ -243,9 +268,9 @@ final class HUDController {
             view.widthAnchor.constraint(equalTo: expandedStack.widthAnchor).isActive = true
         }
         header.heightAnchor.constraint(equalToConstant: 24).isActive = true
-        expandedMetricsHeightConstraint = metrics.heightAnchor.constraint(equalToConstant: 160)
+        expandedMetricsHeightConstraint = metrics.heightAnchor.constraint(equalToConstant: 244)
         expandedMetricsHeightConstraint.isActive = true
-        footer.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        footer.heightAnchor.constraint(equalToConstant: 24).isActive = true
 
         root.addSubview(compactStack)
         root.addSubview(expandedStack)
@@ -277,19 +302,30 @@ final class HUDController {
             backing: .buffered,
             defer: false
         )
-        hudPanel.contentView = root
+        hudPanel.contentView = presentationMode == .floating ? root : nil
         hudPanel.contentMinSize = NSSize(width: Self.panelWidth, height: Self.collapsedHeight)
         hudPanel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
         hudPanel.hasShadow = true
-        hudPanel.level = .floating
+        hudPanel.level = presentationMode == .floating ? .floating : .statusBar
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         hudPanel.hidesOnDeactivate = false
-        hudPanel.isFloatingPanel = true
+        hudPanel.isFloatingPanel = presentationMode == .floating
         hudPanel.isMovableByWindowBackground = false
         hudPanel.animationBehavior = .utilityWindow
         panel = hudPanel
+
+        if presentationMode == .menuBarPopover {
+            let contentController = NSViewController()
+            contentController.view = root
+            let popover = NSPopover()
+            popover.contentViewController = contentController
+            popover.contentSize = Self.collapsedSize
+            popover.behavior = .transient
+            popover.animates = true
+            menuBarPopover = popover
+        }
 
         compactExpandButton.target = self
         compactExpandButton.action = #selector(toggleExpanded)
@@ -304,24 +340,38 @@ final class HUDController {
         closeButton.target = self
         closeButton.action = #selector(closeHUD)
         root.onMoveFinished = { [weak self] point in self?.finishHUDDrag(at: point) }
-        root.onDoubleClick = { [weak self] in self?.openMainApp() }
+        if presentationMode == .floating {
+            root.onDoubleClick = { [weak self] in self?.openMainApp() }
+        }
 
-        isExpanded = defaults.bool(forKey: "hud.expanded")
-        enabled = defaults.object(forKey: "hud.enabled") as? Bool ?? true
-        if let savedDisplayID = defaults.object(forKey: "hud.displayID") as? NSNumber {
+        isExpanded = presentationMode == .menuBarPopover || defaults.bool(forKey: "hud.expanded")
+        enabled = presentationMode == .floating
+            ? (defaults.object(forKey: "hud.enabled") as? Bool ?? true)
+            : false
+        if presentationMode == .floating,
+           let savedDisplayID = defaults.object(forKey: "hud.displayID") as? NSNumber {
             selectedDisplayID = savedDisplayID.uint32Value
         }
-        anchor = loadAnchor()
+        if presentationMode == .floating { anchor = loadAnchor() }
         setToolAvailability(availableTools)
         updateLayout()
-        if enabled && availableTools.hasAny { panel.orderFrontRegardless() }
+        if presentationMode == .floating && enabled && availableTools.hasAny {
+            panel.orderFrontRegardless()
+        }
 
         screenChangeObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.repositionAfterScreenChange() }
+            Task { @MainActor in
+                guard let self else { return }
+                if self.presentationMode == .floating {
+                    self.repositionAfterScreenChange()
+                } else {
+                    self.menuBarPopover?.performClose(nil)
+                }
+            }
         }
     }
 
@@ -333,6 +383,10 @@ final class HUDController {
 
     func setEnabled(_ value: Bool) {
         enabled = value
+        if presentationMode == .menuBarPopover {
+            if !value { menuBarPopover?.performClose(nil) }
+            return
+        }
         defaults.set(value, forKey: "hud.enabled")
         if value && hasVisibleProvider {
             panel.orderFrontRegardless()
@@ -343,7 +397,30 @@ final class HUDController {
     }
 
     func isEnabled() -> Bool { enabled }
-    func isVisible() -> Bool { panel.isVisible }
+    func isVisible() -> Bool {
+        presentationMode == .menuBarPopover ? (menuBarPopover?.isShown ?? false) : panel.isVisible
+    }
+
+    func toggleMenuBarPopover(relativeTo anchorView: NSView) {
+        guard presentationMode == .menuBarPopover,
+              enabled,
+              hasVisibleProvider,
+              let menuBarPopover else { return }
+        if menuBarPopover.isShown {
+            menuBarPopover.performClose(nil)
+            return
+        }
+
+        isExpanded = true
+        updateLayout()
+        let anchorRect = NSRect(
+            x: max(0, anchorView.bounds.maxX - 14),
+            y: 0,
+            width: min(14, anchorView.bounds.width),
+            height: anchorView.bounds.height
+        )
+        menuBarPopover.show(relativeTo: anchorRect, of: anchorView, preferredEdge: .minY)
+    }
 
     func availableDisplays() -> [[String: Any]] {
         NSScreen.screens.map { screen in
@@ -414,6 +491,9 @@ final class HUDController {
         let showCodex = availability.codex && providerVisibility["codex"] != false
         let showDeepSeek = availability.deepSeek && providerVisibility["deepseek"] != false
         let showKimi = availability.kimi && providerVisibility["kimi"] != false
+        codexCardHeightConstraint.isActive = showCodex
+        deepSeekCardHeightConstraint.isActive = showDeepSeek
+        kimiCardHeightConstraint.isActive = showKimi
         compactCodexMetric.isHidden = !showCodex
         compactDeepSeekMetric.isHidden = !showDeepSeek
         compactKimiMetric.isHidden = !showKimi
@@ -424,8 +504,15 @@ final class HUDController {
         let visibleMetricCount = [showCodex, showDeepSeek, showKimi].filter { $0 }.count
         expandedMetricsHeightConstraint.constant = CGFloat(visibleMetricCount * 76)
             + CGFloat(max(0, visibleMetricCount - 1) * 8)
-        expandedHeight = max(Self.collapsedHeight, 76 + expandedMetricsHeightConstraint.constant)
+        expandedHeight = max(Self.collapsedHeight, 84 + expandedMetricsHeightConstraint.constant)
         panel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
+
+        if presentationMode == .menuBarPopover {
+            menuBarPopover?.contentSize = expandedSize
+            if !hasVisibleProvider { menuBarPopover?.performClose(nil) }
+            updateLayout()
+            return
+        }
 
         if !hasVisibleProvider { panel.orderOut(nil) }
         updateLayout()
@@ -489,13 +576,21 @@ final class HUDController {
     }
 
     @objc private func toggleExpanded() {
+        if presentationMode == .menuBarPopover {
+            menuBarPopover?.performClose(nil)
+            return
+        }
         isExpanded.toggle()
         defaults.set(isExpanded, forKey: "hud.expanded")
         updateLayout()
     }
 
     @objc private func closeHUD() {
-        setEnabled(false)
+        if presentationMode == .menuBarPopover {
+            onDisableMenuBarHUD?()
+        } else {
+            setEnabled(false)
+        }
     }
 
     @objc private func refreshUsage() {
@@ -511,6 +606,13 @@ final class HUDController {
         expandedStack.isHidden = !isExpanded
         NSLayoutConstraint.deactivate(isExpanded ? compactLayoutConstraints : expandedLayoutConstraints)
         NSLayoutConstraint.activate(isExpanded ? expandedLayoutConstraints : compactLayoutConstraints)
+
+        if presentationMode == .menuBarPopover {
+            let size = expandedSize
+            rootView.setFrameSize(size)
+            menuBarPopover?.contentSize = size
+            return
+        }
 
         let capsuleFrame = NSRect(origin: anchor, size: Self.collapsedSize)
         let targetScreen = screen(for: capsuleFrame, preferredDisplayID: selectedDisplayID)
@@ -1014,9 +1116,20 @@ private final class HUDMetricCard: NSView {
 private final class MovableHUDView: NSVisualEffectView {
     var onMoveFinished: ((NSPoint) -> Void)?
     var onDoubleClick: (() -> Void)?
+    private let supportsDragging: Bool
     private var mouseDownOffset: NSPoint?
     private var mouseDownScreenPoint: NSPoint?
     private var dragDistance: CGFloat = 0
+
+    init(frame frameRect: NSRect, supportsDragging: Bool = true) {
+        self.supportsDragging = supportsDragging
+        super.init(frame: frameRect)
+    }
+
+    required init?(coder: NSCoder) {
+        supportsDragging = true
+        super.init(coder: coder)
+    }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let hit = super.hitTest(point)
@@ -1025,7 +1138,7 @@ private final class MovableHUDView: NSVisualEffectView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard let window else { return }
+        guard supportsDragging, let window else { return }
         let pointer = window.convertPoint(toScreen: event.locationInWindow)
         mouseDownOffset = NSPoint(
             x: pointer.x - window.frame.minX,
@@ -1036,7 +1149,7 @@ private final class MovableHUDView: NSVisualEffectView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let window, let mouseDownOffset, let mouseDownScreenPoint else { return }
+        guard supportsDragging, let window, let mouseDownOffset, let mouseDownScreenPoint else { return }
         let current = NSEvent.mouseLocation
         dragDistance = max(dragDistance, hypot(
             current.x - mouseDownScreenPoint.x,
@@ -1046,7 +1159,7 @@ private final class MovableHUDView: NSVisualEffectView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if let window, let mouseDownOffset {
+        if supportsDragging, let window, let mouseDownOffset {
             let current = NSEvent.mouseLocation
             window.setFrameOrigin(HUDDragGeometry.windowOrigin(at: current, mouseDownOffset: mouseDownOffset))
             onMoveFinished?(current)

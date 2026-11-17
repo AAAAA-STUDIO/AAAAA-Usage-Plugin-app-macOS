@@ -10,6 +10,8 @@
   let deepSeekBalanceAlertCurrency = "CNY";
   let autoRefreshEnabled = true;
   let latestSnapshot = null;
+  let enabledToolSettings = { codex: false, deepseek: false, kimi: false };
+  let detectedToolAvailability = { codex: false, deepseek: false, kimi: false };
   let currentView = "overview";
   const modelViews = ["codex", "deepseek", "kimi"];
   let modelHUDVisibility = {
@@ -690,8 +692,12 @@
     byId("autoRefreshSetting").hidden = !hasAny;
     byId("hudTopControl").hidden = !hasAny;
     byId("menuBarHUDControl").hidden = !hasAny;
-    byId("settingCard").hidden = !hasAny;
+    byId("hudVisibilityStatus").hidden = !hasAny;
     byId("hudSettingsRow").hidden = !hasAny;
+    byId("hudDisplayRow").hidden = !hasAny;
+    byId("noToolsMessage").textContent = Object.values(enabledToolSettings).some(Boolean)
+      ? "已开启的工具未检测到可用的本机数据源，请检查相关工具的安装或登录状态。"
+      : "尚未启用任何工具。请在设置中开启要监控的工具。";
     byId("overviewDescription").textContent = codex && deepseek && kimi
       ? "各模型的剩余用量与本机 Token 使用情况"
       : codex && deepseek ? "ChatGPT 与 DeepSeek 的剩余用量和 Token 统计"
@@ -700,11 +706,46 @@
       : codex ? "ChatGPT 账户的剩余用量与 Token 统计"
       : deepseek ? "DeepSeek 账户金额与本机 Token 统计"
       : kimi ? "Kimi 会员月额度与 Token 明细状态"
-      : "本机未检测到受支持的工具";
+      : "当前没有启用且可用的工具";
+    if (latestSnapshot && typeof latestSnapshot === "object") {
+      const sanitized = Object.assign({}, latestSnapshot, { tools: { codex, deepseek, kimi } });
+      if (!codex) delete sanitized.codex;
+      if (!deepseek) delete sanitized.deepseek;
+      if (!kimi) delete sanitized.kimi;
+      latestSnapshot = sanitized;
+    }
+    if ((activeModel === "codex" && !codex)
+        || (activeModel === "deepseek" && !deepseek)
+        || (activeModel === "kimi" && !kimi)) {
+      if (!byId("modelDetailOverlay").hidden) closeSessionDetail();
+    }
     if ((currentView === "codex" && !codex)
         || (currentView === "deepseek" && !deepseek)
         || (currentView === "kimi" && !kimi)) {
       setView("overview");
+    }
+  }
+
+  function setToolSettings(enabled, detected) {
+    enabledToolSettings = Object.assign({ codex: false, deepseek: false, kimi: false }, enabled || {});
+    detectedToolAvailability = Object.assign({ codex: false, deepseek: false, kimi: false }, detected || {});
+    const settings = [
+      ["codex", "toolEnabledCodex", "toolStatusCodex"],
+      ["deepseek", "toolEnabledDeepSeek", "toolStatusDeepSeek"],
+      ["kimi", "toolEnabledKimi", "toolStatusKimi"]
+    ];
+    for (const [tool, inputId, statusId] of settings) {
+      const isEnabled = enabledToolSettings[tool] === true;
+      const isDetected = detectedToolAvailability[tool] === true;
+      byId(inputId).checked = isEnabled;
+      byId(statusId).textContent = !isEnabled
+        ? "已停用"
+        : isDetected ? "已启用" : "已开启 · 未检测到";
+    }
+    if (byId("noToolsEmpty") && !byId("noToolsEmpty").hidden) {
+      byId("noToolsMessage").textContent = Object.values(enabledToolSettings).some(Boolean)
+        ? "已开启的工具未检测到可用的本机数据源，请检查相关工具的安装或登录状态。"
+        : "尚未启用任何工具。请在设置中开启要监控的工具。";
     }
   }
 
@@ -781,11 +822,21 @@
     if (event.key === "Escape" && !byId("modelDetailOverlay").hidden) closeSessionDetail();
   });
   byId("refreshButton").addEventListener("click", () => native("refresh"));
+  byId("openSettingsFromEmpty").addEventListener("click", () => setView("settings"));
   byId("autoRefreshToggle").addEventListener("change", (event) => {
     autoRefreshEnabled = event.currentTarget.checked;
     byId("autoRefreshStatus").textContent = autoRefreshEnabled ? "已开启" : "已关闭";
     native("setAutoRefreshEnabled", { enabled: autoRefreshEnabled });
   });
+  for (const [tool, inputId] of [
+    ["codex", "toolEnabledCodex"],
+    ["deepseek", "toolEnabledDeepSeek"],
+    ["kimi", "toolEnabledKimi"]
+  ]) {
+    byId(inputId).addEventListener("change", (event) => {
+      native("setToolEnabled", { tool, enabled: event.currentTarget.checked });
+    });
+  }
   const connectKimi = () => native("openKimiAccount");
   byId("kimiConnect").addEventListener("click", connectKimi);
   const openChatGPT = () => native("openChatGPTApp");
@@ -872,6 +923,6 @@
   window.AAAAAUsage = {
     render, setHUDEnabled, setMenuBarHUDEnabled, setModelHUDVisibility, setHUDDisplays, setUsageAlertThreshold, setKimiMonthlyAlertThreshold,
     setAutoRefreshEnabled,
-    setDeepSeekBalanceAlert, setToolAvailability, receiveSessionDetail
+    setDeepSeekBalanceAlert, setToolAvailability, setToolSettings, receiveSessionDetail
   };
 }());

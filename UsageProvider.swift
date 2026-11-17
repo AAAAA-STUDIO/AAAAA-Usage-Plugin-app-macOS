@@ -1430,6 +1430,14 @@ final class UsageProvider {
     }
 
     private func codexSnapshot(enabled: Bool) async -> [String: Any] {
+        guard enabled else {
+            return [
+                "installed": false, "available": false, "source": "none",
+                "primary": NSNull(), "weekly": NSNull(),
+                "tokens": zeroTokens(available: false, sessions: 0),
+                "sessions": [], "sessionsReason": ""
+            ]
+        }
         let codexHome = ProcessInfo.processInfo.environment["DSH_CODEX_USAGE_HOME"]
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".codex").path
         let sessionSnapshot = await CodexSessionTokenCache.shared.snapshot(
@@ -1440,13 +1448,6 @@ final class UsageProvider {
         let sessionsReason = sessions.isEmpty
             ? "未检测到可读取的 ChatGPT 本机会话记录"
             : "按最近活动时间排列 · 点击一条查看发送内容和最终回复"
-        guard enabled else {
-            return [
-                "installed": false, "available": false, "source": "none",
-                "primary": NSNull(), "weekly": NSNull(), "tokens": tokenUsage,
-                "sessions": sessions, "sessionsReason": sessionsReason
-            ]
-        }
         guard let auth = readCodexAuth() else {
             return [
                 "installed": true, "available": false, "source": "none",
