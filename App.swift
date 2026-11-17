@@ -99,6 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 790),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
+        // The menu-bar HUD and application reopen handler reuse this window after it closes.
+        window.isReleasedWhenClosed = false
         window.title = "用量监控"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
