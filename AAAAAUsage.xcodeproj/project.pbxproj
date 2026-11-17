@@ -7,22 +7,22 @@
 
 /* Begin PBXBuildFile section */
 		A00000000000000000000001 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001 /* App.swift */; };
-		A00000000000000000000002 /* DeepSeekOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002 /* DeepSeekOAuth.swift */; };
 		A00000000000000000000003 /* HUDController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003 /* HUDController.swift */; };
 		A00000000000000000000004 /* UsageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* UsageProvider.swift */; };
 		A00000000000000000000005 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* Resources */; };
 		A00000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000008 /* Assets.xcassets */; };
+		A00000000000000000000007 /* HUDDragGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000009 /* HUDDragGeometry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B00000000000000000000001 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
-		B00000000000000000000002 /* DeepSeekOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepSeekOAuth.swift; sourceTree = "<group>"; };
 		B00000000000000000000003 /* HUDController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDController.swift; sourceTree = "<group>"; };
 		B00000000000000000000004 /* UsageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageProvider.swift; sourceTree = "<group>"; };
 		B00000000000000000000005 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
 		B00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B00000000000000000000007 /* 用量监控.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "用量监控.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B00000000000000000000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B00000000000000000000009 /* HUDDragGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDDragGeometry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,8 +34,8 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000001 /* App.swift */,
-				B00000000000000000000002 /* DeepSeekOAuth.swift */,
 				B00000000000000000000003 /* HUDController.swift */,
+				B00000000000000000000009 /* HUDDragGeometry.swift */,
 				B00000000000000000000004 /* UsageProvider.swift */,
 				B00000000000000000000005 /* Resources */,
 				B00000000000000000000006 /* Info.plist */,
@@ -83,7 +83,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C00000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000001 /* App.swift in Sources */, A00000000000000000000002 /* DeepSeekOAuth.swift in Sources */, A00000000000000000000003 /* HUDController.swift in Sources */, A00000000000000000000004 /* UsageProvider.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		C00000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000001 /* App.swift in Sources */, A00000000000000000000003 /* HUDController.swift in Sources */, A00000000000000000000004 /* UsageProvider.swift in Sources */, A00000000000000000000007 /* HUDDragGeometry.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */

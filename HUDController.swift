@@ -1,10 +1,12 @@
 import AppKit
+import CoreGraphics
 import Foundation
 
 @MainActor
 final class HUDController {
     var onStateChange: (() -> Void)?
     var onOpenMainApp: (() -> Void)?
+    var onRefresh: (() -> Void)?
 
     private let defaults = UserDefaults.standard
     private let panel: NSPanel
@@ -13,30 +15,42 @@ final class HUDController {
     private let expandedStack: NSStackView
     private let compactCodexMetric: NSView
     private let compactDeepSeekMetric: NSView
+    private let compactKimiMetric: HUDCompactMetric
     private let codexCard: HUDMetricCard
     private let deepSeekCard: HUDMetricCard
+    private let kimiCard: HUDMetricCard
     private var expandedMetricsHeightConstraint: NSLayoutConstraint!
     private let compactCodexValue: NSTextField
     private let compactDeepSeekValue: NSTextField
+    private let compactKimiValue: NSTextField
     private let compactUpdatedValue: NSTextField
     private let codexPrimaryValue: NSTextField
     private let codexWeeklyValue: NSTextField
     private let deepSeekBalanceValue: NSTextField
     private let deepSeekSpendValue: NSTextField
+    private let kimiMonthlyValue: NSTextField
+    private let kimiRefreshValue: NSTextField
     private let tokenValue: NSTextField
     private let updatedValue: NSTextField
     private var anchor = NSPoint.zero
+    private var selectedDisplayID: UInt32?
     private var isExpanded = false
     private var enabled = false
+    private var currentAvailability: ToolAvailability?
+    private var providerVisibility: [String: Bool] = [
+        "codex": true, "deepseek": true, "kimi": true
+    ]
     private var expandsRight = true
     private var expandsDown = false
     private var usageAlertThresholdPercent = 20
     private var codexPrimaryRemainingPercent: Int?
     private var codexWeeklyRemainingPercent: Int?
+    private var kimiMonthlyAlertThresholdPercent = 20
+    private var kimiMonthlyRemainingPercent: Int?
     private var deepSeekBalanceAlertThreshold = 10.0
     private var deepSeekBalanceAlertCurrency = "CNY"
     private var deepSeekBalances: [[String: Any]] = []
-    private var deepSeekIsSignedIn = false
+    private var deepSeekCredentialAvailable = false
     private var deepSeekBalanceAlertActive = false
     private var compactLayoutConstraints: [NSLayoutConstraint] = []
     private var expandedLayoutConstraints: [NSLayoutConstraint] = []
@@ -77,8 +91,10 @@ final class HUDController {
 
         let compactCodex = Self.label("—", size: 12, weight: .semibold, color: .white)
         let compactDeepSeek = Self.label("—", size: 12, weight: .semibold, color: .white)
+        let compactKimi = Self.label("—", size: 12, weight: .semibold, color: .white)
         compactCodexValue = compactCodex
         compactDeepSeekValue = compactDeepSeek
+        compactKimiValue = compactKimi
 
         let compactBrandIcon = Self.brandIcon()
         let compactBrandTitle = Self.label("用量监控", size: 11, weight: .semibold, color: .white)
@@ -92,8 +108,11 @@ final class HUDController {
         let compactExpandButton = Self.button(
             symbol: "chevron.up", fallback: "⌃", accessibilityLabel: "展开用量监控"
         )
+        let compactRefreshButton = Self.button(
+            symbol: "arrow.clockwise", fallback: "↻", accessibilityLabel: "刷新用量"
+        )
         let compactHeader = NSStackView(views: [
-            compactBrand, NSView(), compactTime, compactExpandButton
+            compactBrand, NSView(), compactTime, compactRefreshButton, compactExpandButton
         ])
         compactHeader.orientation = .horizontal
         compactHeader.alignment = .centerY
@@ -101,15 +120,26 @@ final class HUDController {
         compactHeader.spacing = 8
         compactBrand.setContentHuggingPriority(.required, for: .horizontal)
         compactTime.setContentHuggingPriority(.required, for: .horizontal)
+        compactRefreshButton.setContentHuggingPriority(.required, for: .horizontal)
         compactExpandButton.setContentHuggingPriority(.required, for: .horizontal)
+        compactRefreshButton.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        compactRefreshButton.heightAnchor.constraint(equalToConstant: 26).isActive = true
         compactExpandButton.widthAnchor.constraint(equalToConstant: 26).isActive = true
         compactExpandButton.heightAnchor.constraint(equalToConstant: 26).isActive = true
 
-        let compactCodexMetric = HUDCompactMetric(title: "Codex · 5 小时剩余", value: compactCodex)
-        let compactDeepSeekMetric = HUDCompactMetric(title: "DeepSeek 余额", value: compactDeepSeek)
+        let compactCodexMetric = HUDCompactMetric(
+            value: compactCodex, icon: Self.providerIcon("chatgpt-icon")
+        )
+        let compactDeepSeekMetric = HUDCompactMetric(
+            value: compactDeepSeek, icon: Self.providerIcon("deepseek-icon")
+        )
+        let compactKimiMetric = HUDCompactMetric(
+            value: compactKimi, icon: Self.providerIcon("kimi-icon")
+        )
         self.compactCodexMetric = compactCodexMetric
         self.compactDeepSeekMetric = compactDeepSeekMetric
-        let compactMetrics = NSStackView(views: [compactCodexMetric, compactDeepSeekMetric])
+        self.compactKimiMetric = compactKimiMetric
+        let compactMetrics = NSStackView(views: [compactCodexMetric, compactDeepSeekMetric, compactKimiMetric])
         compactMetrics.orientation = .horizontal
         compactMetrics.alignment = .centerY
         compactMetrics.distribution = .fillEqually
@@ -123,6 +153,7 @@ final class HUDController {
         compactHeader.heightAnchor.constraint(equalToConstant: 24).isActive = true
         compactMetrics.heightAnchor.constraint(equalToConstant: 30).isActive = true
 
+        let expandedBrandIcon = Self.brandIcon()
         let headerTitle = Self.label("用量监控", size: 13, weight: .semibold, color: .white)
         let openButton = Self.button(
             symbol: "macwindow", fallback: "窗口", accessibilityLabel: "打开主窗口"
@@ -131,9 +162,9 @@ final class HUDController {
             symbol: "chevron.down", fallback: "⌄", accessibilityLabel: "折叠用量监控"
         )
         let closeButton = Self.button(
-            symbol: "xmark", fallback: "×", accessibilityLabel: "关闭 HUD"
+            symbol: "xmark", fallback: "×", accessibilityLabel: "关闭悬浮窗"
         )
-        let header = NSStackView(views: [headerTitle, NSView(), openButton, collapseButton, closeButton])
+        let header = NSStackView(views: [expandedBrandIcon, headerTitle, NSView(), openButton, collapseButton, closeButton])
         header.orientation = .horizontal
         header.alignment = .centerY
         header.distribution = .fill
@@ -146,9 +177,10 @@ final class HUDController {
         headerTitle.setContentHuggingPriority(.required, for: .horizontal)
 
         let codexCard = HUDMetricCard(
-            title: "Codex",
+            title: "ChatGPT",
             firstLabel: "5 小时剩余",
-            secondLabel: "每周剩余"
+            secondLabel: "每周剩余",
+            icon: Self.providerIcon("chatgpt-icon")
         )
         self.codexCard = codexCard
         codexPrimaryValue = codexCard.firstValue
@@ -156,32 +188,50 @@ final class HUDController {
         let deepSeekCard = HUDMetricCard(
             title: "DeepSeek",
             firstLabel: "账户余额 · 官方",
-            secondLabel: "累计消费 · 官方"
+            secondLabel: "累计消费 · 官方",
+            icon: Self.providerIcon("deepseek-icon")
         )
         self.deepSeekCard = deepSeekCard
         deepSeekBalanceValue = deepSeekCard.firstValue
         deepSeekSpendValue = deepSeekCard.secondValue
+        let kimiCard = HUDMetricCard(
+            title: "Kimi",
+            firstLabel: "会员月额度剩余",
+            secondLabel: "下次刷新",
+            icon: Self.providerIcon("kimi-icon")
+        )
+        self.kimiCard = kimiCard
+        kimiMonthlyValue = kimiCard.firstValue
+        kimiRefreshValue = kimiCard.secondValue
 
-        let metrics = NSStackView(views: [codexCard, deepSeekCard])
+        let metrics = NSStackView(views: [codexCard, deepSeekCard, kimiCard])
         metrics.orientation = .vertical
         metrics.alignment = .leading
         metrics.distribution = .fill
         metrics.spacing = 8
         codexCard.widthAnchor.constraint(equalTo: metrics.widthAnchor).isActive = true
         deepSeekCard.widthAnchor.constraint(equalTo: metrics.widthAnchor).isActive = true
+        kimiCard.widthAnchor.constraint(equalTo: metrics.widthAnchor).isActive = true
         codexCard.heightAnchor.constraint(equalToConstant: 76).isActive = true
         deepSeekCard.heightAnchor.constraint(equalToConstant: 76).isActive = true
+        kimiCard.heightAnchor.constraint(equalToConstant: 76).isActive = true
 
-        tokenValue = Self.label("Token 合计  —", size: 11, weight: .medium, color: .white)
+        tokenValue = Self.label("今日 Token 合计  —", size: 11, weight: .medium, color: .white)
         updatedValue = Self.label("等待数据", size: 10, weight: .regular, color: .white.withAlphaComponent(0.68))
         updatedValue.alignment = .right
-        let footer = NSStackView(views: [tokenValue, NSView(), updatedValue])
+        let expandedRefreshButton = Self.button(
+            symbol: "arrow.clockwise", fallback: "↻", accessibilityLabel: "刷新用量"
+        )
+        let footer = NSStackView(views: [tokenValue, NSView(), updatedValue, expandedRefreshButton])
         footer.orientation = .horizontal
         footer.alignment = .centerY
         footer.distribution = .fill
         footer.spacing = 8
         tokenValue.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         updatedValue.setContentHuggingPriority(.required, for: .horizontal)
+        expandedRefreshButton.setContentHuggingPriority(.required, for: .horizontal)
+        expandedRefreshButton.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        expandedRefreshButton.heightAnchor.constraint(equalToConstant: 24).isActive = true
 
         expandedStack = NSStackView(views: [header, metrics, footer])
         expandedStack.orientation = .vertical
@@ -243,17 +293,24 @@ final class HUDController {
 
         compactExpandButton.target = self
         compactExpandButton.action = #selector(toggleExpanded)
+        compactRefreshButton.target = self
+        compactRefreshButton.action = #selector(refreshUsage)
+        expandedRefreshButton.target = self
+        expandedRefreshButton.action = #selector(refreshUsage)
         openButton.target = self
         openButton.action = #selector(openMainApp)
         collapseButton.target = self
         collapseButton.action = #selector(toggleExpanded)
         closeButton.target = self
         closeButton.action = #selector(closeHUD)
-        root.onMove = { [weak self] in self?.rememberAnchor() }
+        root.onMoveFinished = { [weak self] point in self?.finishHUDDrag(at: point) }
         root.onDoubleClick = { [weak self] in self?.openMainApp() }
 
         isExpanded = defaults.bool(forKey: "hud.expanded")
         enabled = defaults.object(forKey: "hud.enabled") as? Bool ?? true
+        if let savedDisplayID = defaults.object(forKey: "hud.displayID") as? NSNumber {
+            selectedDisplayID = savedDisplayID.uint32Value
+        }
         anchor = loadAnchor()
         setToolAvailability(availableTools)
         updateLayout()
@@ -277,7 +334,7 @@ final class HUDController {
     func setEnabled(_ value: Bool) {
         enabled = value
         defaults.set(value, forKey: "hud.enabled")
-        if value {
+        if value && hasVisibleProvider {
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
@@ -288,8 +345,43 @@ final class HUDController {
     func isEnabled() -> Bool { enabled }
     func isVisible() -> Bool { panel.isVisible }
 
+    func availableDisplays() -> [[String: Any]] {
+        NSScreen.screens.map { screen in
+            let displayID = displayID(for: screen)
+            let isMain = displayID == CGMainDisplayID()
+            let name = screen.localizedName.isEmpty ? "显示器" : screen.localizedName
+            let dimensions = "\(Int(screen.frame.width)) × \(Int(screen.frame.height))"
+            return [
+                "id": displayID.map(String.init) ?? "",
+                "label": "\(name) · \(dimensions)\(isMain ? "（主显示器）" : "")",
+                "selected": displayID == selectedDisplayID
+            ]
+        }
+    }
+
+    func moveToDisplay(_ rawDisplayID: String) {
+        guard let displayID = UInt32(rawDisplayID),
+              let destination = screen(withDisplayID: displayID),
+              displayID != selectedDisplayID else { return }
+
+        let current = screen(
+            for: NSRect(origin: anchor, size: Self.collapsedSize),
+            preferredDisplayID: selectedDisplayID
+        ) ?? NSScreen.main ?? destination
+        let (x, y) = normalizedPosition(of: anchor, on: current)
+        selectedDisplayID = displayID
+        anchor = origin(forNormalizedX: x, y: y, on: destination)
+        updateLayout()
+        onStateChange?()
+    }
+
     func setUsageAlertThreshold(_ value: Int) {
         usageAlertThresholdPercent = min(100, max(0, value))
+        updateUsageAlertColors()
+    }
+
+    func setKimiMonthlyAlertThreshold(_ value: Int) {
+        kimiMonthlyAlertThresholdPercent = min(100, max(0, value))
         updateUsageAlertColors()
     }
 
@@ -300,26 +392,50 @@ final class HUDController {
         updateUsageAlertColors()
     }
 
-    func setToolAvailability(_ availability: ToolAvailability) {
-        compactCodexMetric.isHidden = !availability.codex
-        compactDeepSeekMetric.isHidden = !availability.deepSeek
-        codexCard.isHidden = !availability.codex
-        deepSeekCard.isHidden = !availability.deepSeek
+    func setProviderVisibility(_ visibility: [String: Bool]) {
+        providerVisibility = visibility
+        applyProviderVisibility()
+    }
 
-        let visibleMetricCount = (availability.codex ? 1 : 0) + (availability.deepSeek ? 1 : 0)
+    func setToolAvailability(_ availability: ToolAvailability) {
+        currentAvailability = availability
+        applyProviderVisibility()
+    }
+
+    private var hasVisibleProvider: Bool {
+        guard let availability = currentAvailability else { return false }
+        return (availability.codex && providerVisibility["codex"] != false)
+            || (availability.deepSeek && providerVisibility["deepseek"] != false)
+            || (availability.kimi && providerVisibility["kimi"] != false)
+    }
+
+    private func applyProviderVisibility() {
+        guard let availability = currentAvailability else { return }
+        let showCodex = availability.codex && providerVisibility["codex"] != false
+        let showDeepSeek = availability.deepSeek && providerVisibility["deepseek"] != false
+        let showKimi = availability.kimi && providerVisibility["kimi"] != false
+        compactCodexMetric.isHidden = !showCodex
+        compactDeepSeekMetric.isHidden = !showDeepSeek
+        compactKimiMetric.isHidden = !showKimi
+        codexCard.isHidden = !showCodex
+        deepSeekCard.isHidden = !showDeepSeek
+        kimiCard.isHidden = !showKimi
+
+        let visibleMetricCount = [showCodex, showDeepSeek, showKimi].filter { $0 }.count
         expandedMetricsHeightConstraint.constant = CGFloat(visibleMetricCount * 76)
             + CGFloat(max(0, visibleMetricCount - 1) * 8)
         expandedHeight = max(Self.collapsedHeight, 76 + expandedMetricsHeightConstraint.constant)
         panel.contentMaxSize = NSSize(width: Self.panelWidth, height: expandedHeight)
 
-        if !availability.hasAny { panel.orderOut(nil) }
+        if !hasVisibleProvider { panel.orderOut(nil) }
         updateLayout()
-        if enabled && availability.hasAny { panel.orderFrontRegardless() }
+        if enabled && hasVisibleProvider { panel.orderFrontRegardless() }
     }
 
     func render(_ snapshot: [String: Any]) {
         let codex = snapshot["codex"] as? [String: Any] ?? [:]
         let deepseek = snapshot["deepseek"] as? [String: Any] ?? [:]
+        let kimi = snapshot["kimi"] as? [String: Any] ?? [:]
         let codexPrimary = codex["primary"] as? [String: Any] ?? [:]
         let codexWeekly = codex["weekly"] as? [String: Any] ?? [:]
         let primaryRemaining = remainingPercent(codexPrimary["usedPercent"])
@@ -327,26 +443,48 @@ final class HUDController {
         let balances = deepseek["balances"] as? [[String: Any]] ?? []
         let spend = deepseek["officialSpend"] as? [[String: Any]] ?? []
         let cnySpend = spend.first { ($0["currency"] as? String) == "CNY" }?["amount"]
-        let tokens = deepseek["tokens"] as? [String: Any] ?? [:]
-        let signedIn = deepseek["signedIn"] as? Bool == true
+        let hasDeepSeekCredential = deepseek["credentialAvailable"] as? Bool == true
+        let kimiAvailable = kimi["available"] as? Bool == true
+        let kimiMonthly = kimi["monthly"] as? [String: Any] ?? [:]
+        let tokenSources = [codex, deepseek, kimi]
+            .compactMap { $0["tokens"] as? [String: Any] }
+            .filter { $0["todayAvailable"] as? Bool == true }
+        let hasTokenData = !tokenSources.isEmpty
+        let todayTokenTotal = tokenSources.reduce(0.0) { total, source in
+            total + ((source["todayTokens"] as? NSNumber)?.doubleValue ?? 0)
+        }
 
         let codexAvailable = codex["available"] as? Bool == true
         codexPrimaryRemainingPercent = codexAvailable ? primaryRemaining : nil
         codexWeeklyRemainingPercent = codexAvailable ? weeklyRemaining : nil
+        kimiMonthlyRemainingPercent = kimiAvailable ? remainingPercent(kimiMonthly["usedPercent"]) : nil
         deepSeekBalances = balances
-        deepSeekIsSignedIn = signedIn
+        deepSeekCredentialAvailable = hasDeepSeekCredential
 
         compactCodexValue.stringValue = codexAvailable ? percentText(primaryRemaining) : "—"
+        compactKimiValue.stringValue = kimiAvailable
+            ? percentText(remainingPercent(kimiMonthly["usedPercent"])) : "—"
         compactUpdatedValue.stringValue = compactUpdatedTime(snapshot["updatedAt"])
+        codexCard.firstLabel.stringValue = usageWindowLabel(
+            "5 小时剩余", resetAt: codexPrimary["resetAt"]
+        )
+        codexCard.secondLabel.stringValue = usageWindowLabel(
+            "每周剩余", resetAt: codexWeekly["resetAt"]
+        )
         codexPrimaryValue.stringValue = codexAvailable ? percentText(primaryRemaining) : "—"
         codexWeeklyValue.stringValue = codexAvailable ? percentText(weeklyRemaining) : "—"
-        deepSeekSpendValue.stringValue = signedIn ? formattedMoney(cnySpend, currency: "CNY") : "—"
+        kimiMonthlyValue.stringValue = kimiAvailable
+            ? percentText(remainingPercent(kimiMonthly["usedPercent"])) : "—"
+        kimiCard.secondLabel.stringValue = "下次刷新"
+        kimiRefreshValue.stringValue = kimiAvailable ? resetTimeText(kimiMonthly["resetAt"]) : "—"
+        deepSeekSpendValue.stringValue = hasDeepSeekCredential ? formattedMoney(cnySpend, currency: "CNY") : "—"
         updateDeepSeekBalanceValues()
         updateUsageAlertColors()
 
-        tokenValue.stringValue = tokens["available"] as? Bool == true
-            ? "Token 合计  \(intString(tokens["totalTokens"]))"
-            : "本机暂无 Token 记录"
+        tokenValue.stringValue = hasTokenData
+            ? "今日 Token 合计  \(intString(NSNumber(value: todayTokenTotal)))"
+            : "今日 Token 合计  —"
+        tokenValue.toolTip = "按本机时区统计今天 00:00 至次日 00:00 的 Token 用量，汇总当前可读取的 ChatGPT 与 DeepSeek 会话；Kimi 接口不提供 Token 分项数量。"
         updatedValue.stringValue = updatedTime(snapshot["updatedAt"])
     }
 
@@ -360,6 +498,10 @@ final class HUDController {
         setEnabled(false)
     }
 
+    @objc private func refreshUsage() {
+        onRefresh?()
+    }
+
     @objc private func openMainApp() {
         onOpenMainApp?()
     }
@@ -370,7 +512,10 @@ final class HUDController {
         NSLayoutConstraint.deactivate(isExpanded ? compactLayoutConstraints : expandedLayoutConstraints)
         NSLayoutConstraint.activate(isExpanded ? expandedLayoutConstraints : compactLayoutConstraints)
 
-        let capsule = fit(NSRect(origin: anchor, size: Self.collapsedSize))
+        let capsuleFrame = NSRect(origin: anchor, size: Self.collapsedSize)
+        let targetScreen = screen(for: capsuleFrame, preferredDisplayID: selectedDisplayID)
+        let capsule = fit(capsuleFrame, on: targetScreen)
+        selectedDisplayID = displayID(for: targetScreen)
         anchor = capsule.origin
         let frame = isExpanded ? expandedFrame(for: capsule) : capsule
         panel.setFrame(frame, display: true, animate: false)
@@ -380,71 +525,151 @@ final class HUDController {
     }
 
     private func loadAnchor() -> NSPoint {
+        let normalizedX = defaults.object(forKey: "hud.positionX") as? Double
+        let normalizedY = defaults.object(forKey: "hud.positionY") as? Double
+        if let normalizedX, let normalizedY,
+           let target = screen(withDisplayID: selectedDisplayID) ?? NSScreen.main ?? NSScreen.screens.first {
+            selectedDisplayID = displayID(for: target)
+            return origin(forNormalizedX: normalizedX, y: normalizedY, on: target)
+        }
+
         if defaults.object(forKey: "hud.anchorX") != nil,
            defaults.object(forKey: "hud.anchorY") != nil {
             let point = NSPoint(
                 x: defaults.double(forKey: "hud.anchorX"),
                 y: defaults.double(forKey: "hud.anchorY")
             )
-            if point.x.isFinite, point.y.isFinite { return point }
+            if point.x.isFinite, point.y.isFinite {
+                let frame = NSRect(origin: point, size: Self.collapsedSize)
+                let target = screen(for: frame, preferredDisplayID: selectedDisplayID)
+                selectedDisplayID = displayID(for: target)
+                return fit(frame, on: target).origin
+            }
         }
-        let visible = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
-        return NSPoint(x: visible.maxX - Self.collapsedSize.width - 22, y: visible.minY + 18)
+
+        let target = NSScreen.main ?? NSScreen.screens.first
+        selectedDisplayID = displayID(for: target)
+        let bounds = target?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let initial = NSRect(
+            x: bounds.maxX - Self.collapsedSize.width - 22,
+            y: bounds.minY + 18,
+            width: Self.collapsedSize.width,
+            height: Self.collapsedSize.height
+        )
+        return fit(initial, on: target).origin
     }
 
-    private func rememberAnchor() {
-        let fitted = fit(panel.frame)
-        panel.setFrameOrigin(fitted.origin)
+    private func finishHUDDrag(at cursor: NSPoint) {
+        let oldDisplayID = selectedDisplayID
+        let screens = NSScreen.screens
+        let target = HUDDragGeometry.screenIndex(
+            containing: cursor,
+            frames: screens.map(\.frame)
+        ).map { screens[$0] }
+            ?? screen(for: panel.frame, preferredDisplayID: selectedDisplayID)
+        selectedDisplayID = displayID(for: target)
         if isExpanded {
             anchor = NSPoint(
-                x: expandsRight ? fitted.minX : fitted.maxX - Self.collapsedSize.width,
-                y: expandsDown ? fitted.maxY - Self.collapsedSize.height : fitted.minY
+                x: expandsRight ? panel.frame.minX : panel.frame.maxX - Self.collapsedSize.width,
+                y: expandsDown ? panel.frame.maxY - Self.collapsedSize.height : panel.frame.minY
             )
         } else {
-            anchor = fitted.origin
+            anchor = panel.frame.origin
         }
         persistAnchor()
+        if oldDisplayID != selectedDisplayID { onStateChange?() }
     }
 
     private func repositionAfterScreenChange() {
-        let fittedCapsule = fit(NSRect(origin: anchor, size: Self.collapsedSize))
-        anchor = fittedCapsule.origin
+        if let normalizedX = defaults.object(forKey: "hud.positionX") as? Double,
+           let normalizedY = defaults.object(forKey: "hud.positionY") as? Double,
+           let target = screen(withDisplayID: selectedDisplayID) ?? NSScreen.main ?? NSScreen.screens.first {
+            selectedDisplayID = displayID(for: target)
+            anchor = origin(forNormalizedX: normalizedX, y: normalizedY, on: target)
+        }
         updateLayout()
+        onStateChange?()
     }
 
     private func persistAnchor() {
         defaults.set(anchor.x, forKey: "hud.anchorX")
         defaults.set(anchor.y, forKey: "hud.anchorY")
+        guard let target = screen(withDisplayID: selectedDisplayID) else { return }
+        defaults.set(selectedDisplayID, forKey: "hud.displayID")
+        let (x, y) = normalizedPosition(of: anchor, on: target)
+        defaults.set(x, forKey: "hud.positionX")
+        defaults.set(y, forKey: "hud.positionY")
     }
 
-    private func fit(_ frame: NSRect) -> NSRect {
-        let center = NSPoint(x: frame.midX, y: frame.midY)
-        let screen = screen(containing: center, fallbackFrame: frame)
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
-        let width = min(frame.width, visible.width)
-        let height = min(frame.height, visible.height)
+    private func fit(_ frame: NSRect, on screen: NSScreen?) -> NSRect {
+        let bounds = screen?.frame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let width = min(frame.width, bounds.width)
+        let height = min(frame.height, bounds.height)
         return NSRect(
-            x: min(max(frame.minX, visible.minX), visible.maxX - width),
-            y: min(max(frame.minY, visible.minY), visible.maxY - height),
+            x: min(max(frame.minX, bounds.minX), bounds.maxX - width),
+            y: min(max(frame.minY, bounds.minY), bounds.maxY - height),
             width: width,
             height: height
         )
     }
 
-    private func expandedFrame(for capsule: NSRect) -> NSRect {
-        let screen = screen(
-            containing: NSPoint(x: capsule.midX, y: capsule.midY),
-            fallbackFrame: capsule
+    private func normalizedPosition(of point: NSPoint, on screen: NSScreen) -> (Double, Double) {
+        let bounds = screen.frame
+        let width = max(0, bounds.width - Self.collapsedSize.width)
+        let height = max(0, bounds.height - Self.collapsedSize.height)
+        let x = width == 0 ? 0 : (point.x - bounds.minX) / width
+        let y = height == 0 ? 0 : (point.y - bounds.minY) / height
+        return (Double(x), Double(y))
+    }
+
+    private func origin(forNormalizedX x: Double, y: Double, on screen: NSScreen) -> NSPoint {
+        let bounds = screen.frame
+        let width = max(0, bounds.width - Self.collapsedSize.width)
+        let height = max(0, bounds.height - Self.collapsedSize.height)
+        let clampedX = min(1, max(0, x))
+        let clampedY = min(1, max(0, y))
+        return NSPoint(
+            x: bounds.minX + width * clampedX,
+            y: bounds.minY + height * clampedY
         )
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
-        let width = min(expandedSize.width, visible.width)
-        let height = min(expandedSize.height, visible.height)
+    }
+
+    private func screen(
+        for frame: NSRect,
+        preferredDisplayID: UInt32?
+    ) -> NSScreen? {
+        let center = NSPoint(x: frame.midX, y: frame.midY)
+        if let containing = NSScreen.screens.first(where: { $0.frame.contains(center) }) {
+            return containing
+        }
+
+        let intersections = NSScreen.screens.compactMap { screen -> (NSScreen, CGFloat)? in
+            let intersection = frame.intersection(screen.frame)
+            guard !intersection.isNull else { return nil }
+            return (screen, intersection.width * intersection.height)
+        }
+        if let maximumArea = intersections.map(\.1).max() {
+            if let preferred = intersections.first(where: {
+                displayID(for: $0.0) == preferredDisplayID && $0.1 == maximumArea
+            })?.0 {
+                return preferred
+            }
+            return intersections.first(where: { $0.1 == maximumArea })?.0
+        }
+        return screen(withDisplayID: preferredDisplayID) ?? NSScreen.main ?? NSScreen.screens.first
+    }
+
+    private func expandedFrame(for capsule: NSRect) -> NSRect {
+        let screen = screen(for: capsule, preferredDisplayID: selectedDisplayID)
+        let bounds = screen?.frame ?? NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let width = min(expandedSize.width, bounds.width)
+        let height = min(expandedSize.height, bounds.height)
         let extraWidth = max(0, width - capsule.width)
         let extraHeight = max(0, height - capsule.height)
-        let roomRight = visible.maxX - capsule.maxX
-        let roomLeft = capsule.minX - visible.minX
-        let roomDown = capsule.minY - visible.minY
-        let roomUp = visible.maxY - capsule.maxY
+        let roomRight = bounds.maxX - capsule.maxX
+        let roomLeft = capsule.minX - bounds.minX
+        let roomDown = capsule.minY - bounds.minY
+        let roomUp = bounds.maxY - capsule.maxY
 
         expandsRight = roomRight >= extraWidth || (roomLeft < extraWidth && roomRight >= roomLeft)
         expandsDown = roomDown >= extraHeight || (roomUp < extraHeight && roomDown >= roomUp)
@@ -454,10 +679,17 @@ final class HUDController {
         return NSRect(x: x, y: y, width: width, height: height)
     }
 
-    private func screen(containing point: NSPoint, fallbackFrame: NSRect) -> NSScreen? {
-        NSScreen.screens.first(where: { $0.frame.contains(point) })
-            ?? NSScreen.screens.first(where: { $0.frame.intersects(fallbackFrame) })
-            ?? NSScreen.main
+    private func screen(withDisplayID displayID: UInt32?) -> NSScreen? {
+        guard let displayID else { return nil }
+        return NSScreen.screens.first(where: { self.displayID(for: $0) == displayID })
+    }
+
+    private func displayID(for screen: NSScreen?) -> UInt32? {
+        guard let screen,
+              let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return nil
+        }
+        return number.uint32Value
     }
 
     private func remainingPercent(_ value: Any?) -> Int? {
@@ -471,6 +703,34 @@ final class HUDController {
         return "\(value)%"
     }
 
+    private func resetTimeText(_ value: Any?) -> String {
+        let timestamp: Double?
+        if let number = value as? NSNumber {
+            timestamp = number.doubleValue
+        } else if let string = value as? String, let number = Double(string) {
+            timestamp = number
+        } else if let string = value as? String {
+            if let date = ISO8601DateFormatter().date(from: string) {
+                timestamp = date.timeIntervalSince1970 * 1000
+            } else {
+                timestamp = nil
+            }
+        } else {
+            timestamp = nil
+        }
+        guard let timestamp, timestamp > 0 else { return "—" }
+        let seconds = timestamp > 100_000_000_000 ? timestamp / 1000 : timestamp
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M/d HH:mm"
+        return formatter.string(from: Date(timeIntervalSince1970: seconds))
+    }
+
+    private func usageWindowLabel(_ label: String, resetAt: Any?) -> String {
+        let resetTime = resetTimeText(resetAt)
+        return resetTime == "—" ? label : "\(label) · 下次刷新 \(resetTime)"
+    }
+
     private func updateUsageAlertColors() {
         let alertColor = NSColor.systemOrange
         compactCodexValue.textColor = isAtOrBelowUsageAlert(codexPrimaryRemainingPercent) ? alertColor : .white
@@ -479,6 +739,11 @@ final class HUDController {
         let deepSeekColor = deepSeekBalanceAlertActive ? alertColor : .white
         compactDeepSeekValue.textColor = deepSeekColor
         deepSeekBalanceValue.textColor = deepSeekColor
+        let kimiMonthlyAlert = kimiMonthlyRemainingPercent.map {
+            $0 <= kimiMonthlyAlertThresholdPercent
+        } == true
+        kimiMonthlyValue.textColor = kimiMonthlyAlert ? alertColor : .white
+        compactKimiValue.textColor = kimiMonthlyAlert ? alertColor : .white
     }
 
     private func isAtOrBelowUsageAlert(_ remainingPercent: Int?) -> Bool {
@@ -491,11 +756,11 @@ final class HUDController {
             ($0["currency"] as? String) == deepSeekBalanceAlertCurrency
         }?["amount"]
         let amountValue = numericAmount(amount)
-        deepSeekBalanceAlertActive = deepSeekIsSignedIn
+        deepSeekBalanceAlertActive = deepSeekCredentialAvailable
             && amountValue.map { $0 <= deepSeekBalanceAlertThreshold } == true
         let formatted = formattedMoney(amount, currency: deepSeekBalanceAlertCurrency)
-        compactDeepSeekValue.stringValue = deepSeekIsSignedIn ? formatted : "未登录"
-        deepSeekBalanceValue.stringValue = deepSeekIsSignedIn ? formatted : "—"
+        compactDeepSeekValue.stringValue = deepSeekCredentialAvailable ? formatted : "—"
+        deepSeekBalanceValue.stringValue = deepSeekCredentialAvailable ? formatted : "—"
     }
 
     private func numericAmount(_ value: Any?) -> Double? {
@@ -578,6 +843,17 @@ final class HUDController {
         return field
     }
 
+    fileprivate static func providerIcon(_ name: String) -> NSImage? {
+        guard let url = Bundle.main.url(
+            forResource: name,
+            withExtension: "png",
+            subdirectory: "Resources"
+        ) else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }
+
     private static func verticalStack(_ views: [NSView], spacing: CGFloat) -> NSStackView {
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
@@ -588,21 +864,16 @@ final class HUDController {
     }
 
     private static func brandIcon() -> NSView {
-        let view = NSView()
+        let view = NSImageView(frame: .zero)
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.image = providerIcon("app-icon")
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.setAccessibilityLabel("用量监控 App 图标")
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor(calibratedRed: 0.39, green: 0.48, blue: 0.92, alpha: 0.95).cgColor
         view.layer?.cornerRadius = 7
-        let letter = label("A", size: 11, weight: .bold, color: .white)
-        letter.alignment = .center
-        view.addSubview(letter)
-        letter.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            view.widthAnchor.constraint(equalToConstant: 24),
-            view.heightAnchor.constraint(equalToConstant: 24),
-            letter.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            letter.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-        ])
+        view.layer?.masksToBounds = true
+        view.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        view.heightAnchor.constraint(equalToConstant: 24).isActive = true
         return view
     }
 
@@ -643,13 +914,7 @@ final class HUDController {
 
 @MainActor
 private final class HUDCompactMetric: NSView {
-    init(title: String, value: NSTextField) {
-        let titleField = HUDController.label(
-            title,
-            size: 10,
-            weight: .medium,
-            color: .white.withAlphaComponent(0.72)
-        )
+    init(value: NSTextField, icon: NSImage?) {
         super.init(frame: .zero)
 
         wantsLayer = true
@@ -659,16 +924,22 @@ private final class HUDCompactMetric: NSView {
         layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
         value.alignment = .right
         value.font = .systemFont(ofSize: 12, weight: .semibold)
+        let iconView = NSImageView(frame: .zero)
+        iconView.image = icon
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        iconView.isHidden = icon == nil
 
-        for subview in [titleField, value] {
+        for subview in [iconView, value] {
             addSubview(subview)
             subview.translatesAutoresizingMaskIntoConstraints = false
         }
         value.setContentCompressionResistancePriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([
-            titleField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 9),
-            titleField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleField.trailingAnchor.constraint(lessThanOrEqualTo: value.leadingAnchor, constant: -5),
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 14),
+            iconView.heightAnchor.constraint(equalToConstant: 14),
+            value.leadingAnchor.constraint(greaterThanOrEqualTo: iconView.trailingAnchor, constant: 5),
             value.centerYAnchor.constraint(equalTo: centerYAnchor),
             value.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -9)
         ])
@@ -683,11 +954,18 @@ private final class HUDCompactMetric: NSView {
 private final class HUDMetricCard: NSView {
     let firstValue: NSTextField
     let secondValue: NSTextField
+    let firstLabel: NSTextField
+    let secondLabel: NSTextField
 
-    init(title: String, firstLabel: String, secondLabel: String) {
+    init(title: String, firstLabel: String, secondLabel: String, icon: NSImage?) {
         let titleField = HUDController.label(title, size: 10, weight: .semibold, color: .white)
+        let iconView = NSImageView(frame: .zero)
+        iconView.image = icon
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        iconView.isHidden = icon == nil
         let firstLabelField = HUDController.label(firstLabel, size: 10, weight: .regular, color: .white.withAlphaComponent(0.70))
-        let secondLabelField = HUDController.label(secondLabel, size: 10, weight: .regular, color: .white.withAlphaComponent(0.70))
+        self.firstLabel = firstLabelField
+        self.secondLabel = HUDController.label(secondLabel, size: 10, weight: .regular, color: .white.withAlphaComponent(0.70))
         firstValue = HUDController.label("—", size: 12, weight: .semibold, color: .white)
         secondValue = HUDController.label("—", size: 12, weight: .semibold, color: .white)
         super.init(frame: .zero)
@@ -698,14 +976,18 @@ private final class HUDMetricCard: NSView {
         layer?.borderWidth = 1
         layer?.borderColor = NSColor.white.withAlphaComponent(0.08).cgColor
 
-        for view in [titleField, firstLabelField, firstValue, secondLabelField, secondValue] {
+        for view in [iconView, titleField, firstLabelField, firstValue, self.secondLabel, secondValue] {
             addSubview(view)
             view.translatesAutoresizingMaskIntoConstraints = false
         }
         firstValue.alignment = .right
         secondValue.alignment = .right
         NSLayoutConstraint.activate([
-            titleField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 11),
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 11),
+            iconView.centerYAnchor.constraint(equalTo: titleField.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 16),
+            iconView.heightAnchor.constraint(equalToConstant: 16),
+            titleField.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 6),
             titleField.topAnchor.constraint(equalTo: topAnchor, constant: 9),
             titleField.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -9),
 
@@ -715,11 +997,11 @@ private final class HUDMetricCard: NSView {
             firstValue.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -11),
             firstLabelField.trailingAnchor.constraint(lessThanOrEqualTo: firstValue.leadingAnchor, constant: -5),
 
-            secondLabelField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 11),
-            secondLabelField.centerYAnchor.constraint(equalTo: secondValue.centerYAnchor),
+            self.secondLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 11),
+            self.secondLabel.centerYAnchor.constraint(equalTo: secondValue.centerYAnchor),
             secondValue.topAnchor.constraint(equalTo: firstValue.bottomAnchor, constant: 4),
             secondValue.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -11),
-            secondLabelField.trailingAnchor.constraint(lessThanOrEqualTo: secondValue.leadingAnchor, constant: -5)
+            self.secondLabel.trailingAnchor.constraint(lessThanOrEqualTo: secondValue.leadingAnchor, constant: -5)
         ])
     }
 
@@ -730,9 +1012,10 @@ private final class HUDMetricCard: NSView {
 
 @MainActor
 private final class MovableHUDView: NSVisualEffectView {
-    var onMove: (() -> Void)?
+    var onMoveFinished: ((NSPoint) -> Void)?
     var onDoubleClick: (() -> Void)?
-    private var previousScreenPoint: NSPoint?
+    private var mouseDownOffset: NSPoint?
+    private var mouseDownScreenPoint: NSPoint?
     private var dragDistance: CGFloat = 0
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -742,27 +1025,36 @@ private final class MovableHUDView: NSVisualEffectView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        previousScreenPoint = window?.convertPoint(toScreen: event.locationInWindow)
+        guard let window else { return }
+        let pointer = window.convertPoint(toScreen: event.locationInWindow)
+        mouseDownOffset = NSPoint(
+            x: pointer.x - window.frame.minX,
+            y: pointer.y - window.frame.minY
+        )
+        mouseDownScreenPoint = pointer
         dragDistance = 0
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let window, let previousScreenPoint else { return }
-        let current = window.convertPoint(toScreen: event.locationInWindow)
-        let delta = NSPoint(x: current.x - previousScreenPoint.x, y: current.y - previousScreenPoint.y)
-        dragDistance += hypot(delta.x, delta.y)
-        window.setFrameOrigin(NSPoint(
-            x: window.frame.minX + delta.x,
-            y: window.frame.minY + delta.y
+        guard let window, let mouseDownOffset, let mouseDownScreenPoint else { return }
+        let current = NSEvent.mouseLocation
+        dragDistance = max(dragDistance, hypot(
+            current.x - mouseDownScreenPoint.x,
+            current.y - mouseDownScreenPoint.y
         ))
-        self.previousScreenPoint = current
-        onMove?()
+        window.setFrameOrigin(HUDDragGeometry.windowOrigin(at: current, mouseDownOffset: mouseDownOffset))
     }
 
     override func mouseUp(with event: NSEvent) {
+        if let window, let mouseDownOffset {
+            let current = NSEvent.mouseLocation
+            window.setFrameOrigin(HUDDragGeometry.windowOrigin(at: current, mouseDownOffset: mouseDownOffset))
+            onMoveFinished?(current)
+        }
         if event.clickCount == 2, dragDistance < 4 {
             onDoubleClick?()
         }
-        previousScreenPoint = nil
+        mouseDownOffset = nil
+        mouseDownScreenPoint = nil
     }
 }

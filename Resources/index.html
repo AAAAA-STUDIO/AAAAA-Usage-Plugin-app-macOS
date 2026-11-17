@@ -7,123 +7,205 @@
   <title>用量监控</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="availability-pending">
+<body>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">A</div>
+        <img class="brand-mark" src="app-icon.png" alt="用量监控 App 图标">
         <div><strong>AAAAA</strong><span>USAGE MONITOR</span></div>
       </div>
       <div class="nav-label">用量监控</div>
       <nav>
         <button class="nav-item active" data-view="overview"><span class="nav-icon">◫</span>概览</button>
-        <button class="nav-item" data-view="codex" data-tool="codex"><span class="nav-icon">◉</span>Codex</button>
-        <button class="nav-item" data-view="deepseek" data-tool="deepseek"><span class="nav-icon">◈</span>DeepSeek</button>
+        <button class="nav-item" data-view="codex" data-tool="codex"><img class="nav-icon provider-nav-icon" src="chatgpt-icon.png" alt="">ChatGPT</button>
+        <button class="nav-item" data-view="deepseek" data-tool="deepseek"><img class="nav-icon provider-nav-icon" src="deepseek-icon.png" alt="">DeepSeek</button>
+        <button class="nav-item" data-view="kimi" data-tool="kimi"><img class="nav-icon provider-nav-icon" src="kimi-icon.png" alt="">Kimi</button>
       </nav>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-note"><span class="live-dot"></span> 独立桌面应用</div>
       <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>设置</button>
-      <div class="sidebar-footer">本机运行 · 账户令牌保存在钥匙串</div>
+      <div class="sidebar-footer">本机运行 · 账户数据保存在本机</div>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <div class="breadcrumb"><span>AAAAA</span><i>/</i><strong id="crumb">概览</strong></div>
         <div class="top-actions">
-          <label class="hud-control" id="hudTopControl"><span>全局 HUD</span><input id="hudToggle" type="checkbox"><span class="switch"></span></label>
+          <label class="hud-control menu-bar-control" id="menuBarHUDControl" title="在 macOS 菜单栏中显示折叠 HUD 内容"><span>菜单栏 HUD</span><input id="menuBarHUDToggle" type="checkbox"><span class="switch"></span></label>
+          <label class="hud-control" id="hudTopControl"><span>悬浮窗 HUD</span><input id="hudToggle" type="checkbox"><span class="switch"></span></label>
           <span id="hudVisibilityStatus" class="hud-visibility-status" aria-live="polite"></span>
           <button class="icon-button" id="refreshButton" title="刷新用量">↻ <span>刷新</span></button>
           <span id="lastUpdated" class="updated">等待数据</span>
         </div>
       </header>
 
-      <div class="notice" id="notice" role="status"></div>
       <div class="content">
         <section class="page view-active" data-page="overview">
           <div class="page-heading">
             <div><div class="eyebrow">ACCOUNT OVERVIEW</div><h1>用量信息</h1>
-              <p id="overviewDescription">Codex 与 DeepSeek 的官方账户状态和本机 Token 统计</p></div>
+              <p id="overviewDescription">ChatGPT、DeepSeek 与 Kimi 的账户状态和可用用量</p></div>
             <span class="secure-badge"><span class="live-dot"></span>仅本机读取</span>
           </div>
 
-          <div class="account-grid" id="overviewAccounts">
-            <article class="account-card codex-card" data-tool="codex">
-              <div class="card-heading"><div class="service-title"><span class="service-icon codex-icon">C</span><div><strong>Codex</strong><small id="codexAccount">ChatGPT 用量</small></div></div><span class="source-pill" id="codexSource">读取中</span></div>
-              <div class="window-pair">
-                <div class="window-stat"><div class="stat-label">5 小时剩余</div><div class="stat-value" id="codexPrimary">—</div><div class="progress"><i id="codexPrimaryBar"></i></div><div class="reset" id="codexPrimaryReset">等待用量数据</div></div>
-                <div class="window-stat"><div class="stat-label">每周剩余</div><div class="stat-value" id="codexWeekly">—</div><div class="progress"><i id="codexWeeklyBar"></i></div><div class="reset" id="codexWeeklyReset">等待用量数据</div></div>
+          <div class="model-list" id="overviewAccounts">
+            <article class="model-row chatgpt-model" data-tool="codex">
+              <div class="model-heading"><div class="model-provider"><img class="model-logo" src="chatgpt-icon.png" alt=""><div><strong>ChatGPT</strong><small id="codexAccount">ChatGPT 用量</small></div></div><div class="model-header-actions"><span class="source-pill" id="codexSource">读取中</span><button class="small-button" id="openChatGPTApp">打开 ChatGPT</button></div></div>
+              <div class="model-content">
+                <section class="model-usage"><div class="model-section-heading"><strong>剩余用量</strong><span>使用窗口</span></div>
+                  <div class="model-usage-grid">
+                    <div class="model-usage-metric"><span>5 小时</span><strong id="codexPrimary">—</strong><div class="progress"><i id="codexPrimaryBar"></i></div><small id="codexPrimaryReset">等待数据</small></div>
+                    <div class="model-usage-metric"><span>每周</span><strong id="codexWeekly">—</strong><div class="progress"><i id="codexWeeklyBar"></i></div><small id="codexWeeklyReset">等待数据</small></div>
+                  </div>
+                </section>
+                <section class="model-token-panel"><div class="model-section-heading"><strong>Token 使用情况</strong><span class="model-token-source" id="chatgptTokenSource">读取中</span></div>
+                  <div class="model-token-grid">
+                    <div class="model-token-item"><span>输入</span><strong id="chatgptTokenInput">—</strong></div>
+                    <div class="model-token-item"><span>缓存输入</span><strong id="chatgptTokenCache">—</strong></div>
+                    <div class="model-token-item"><span>输出</span><strong id="chatgptTokenOutput">—</strong></div>
+                    <div class="model-token-item model-token-total"><span>合计</span><strong id="chatgptTokenTotal">—</strong></div>
+                  </div>
+                  <p class="model-token-note" id="chatgptTokenNote">汇总最近的本机会话记录</p>
+                </section>
               </div>
-              <div class="card-foot"><span id="codexPlan">读取 ChatGPT 官方用量接口</span><button class="text-button" data-view="codex">详细信息 <b>→</b></button></div>
             </article>
 
-            <article class="account-card deepseek-card" data-tool="deepseek">
-              <div class="card-heading"><div class="service-title"><span class="service-icon deepseek-icon">D</span><div><strong>DeepSeek</strong><small id="deepseekAccount">开放平台账户</small></div></div><div class="account-actions"><button class="small-button primary-button" id="deepSeekLogin">官方登录</button><button class="small-button" id="deepSeekLogout" hidden>退出登录</button></div></div>
-              <div class="official-pair">
-                <div class="official-stat"><div class="stat-label">总余额 <span class="official-mark">官方</span></div><div class="stat-value" id="deepSeekBalance">—</div><div class="reset">DeepSeek 开放平台账户余额</div></div>
-                <div class="official-stat"><div class="stat-label">累计消费金额 <span class="official-mark">官方</span></div><div class="stat-value" id="deepSeekSpend">—</div><div class="reset">来自官方账户摘要</div></div>
+            <article class="model-row deepseek-model" data-tool="deepseek">
+              <div class="model-heading"><div class="model-provider"><img class="model-logo" src="deepseek-icon.png" alt=""><div><strong>DeepSeek</strong><small id="deepseekAccount">本机账户数据源</small></div></div><div class="model-header-actions"><span class="source-pill">官方账户 · 本机 Token</span><button class="small-button" id="openDeepSeekHarness">打开 DSH</button></div></div>
+              <div class="model-content">
+                <section class="model-usage"><div class="model-section-heading"><strong>账户用量</strong><span>人民币余额</span></div>
+                  <div class="model-usage-grid model-money-grid">
+                    <div class="model-usage-metric"><span>账户余额</span><strong class="model-balance" id="deepSeekBalance">—</strong><small>开放平台</small></div>
+                    <div class="model-usage-metric"><span>累计消费</span><strong id="deepSeekSpend">—</strong><small>官方账户摘要</small></div>
+                  </div>
+                </section>
+                <section class="model-token-panel"><div class="model-section-heading"><strong>Token 使用情况</strong><span class="model-token-source" id="tokenSource">本机记录</span></div>
+                  <div class="model-token-grid">
+                    <div class="model-token-item"><span>输入</span><strong id="tokenInput">—</strong></div>
+                    <div class="model-token-item"><span>缓存输入</span><strong id="tokenCache">—</strong></div>
+                    <div class="model-token-item"><span>输出</span><strong id="tokenOutput">—</strong></div>
+                    <div class="model-token-item model-token-total"><span>合计</span><strong id="tokenTotal">—</strong></div>
+                  </div>
+                  <p class="model-token-note" id="sessionCount">读取本机 Harness 会话投影</p>
+                </section>
               </div>
-              <div class="card-foot"><span id="deepSeekStatus">连接官方账户后读取余额与累计金额</span><div class="inline-actions"><button class="text-button" id="openDeepSeekUsage">用量详情 <b>↗</b></button><button class="text-button" id="openDeepSeekTopUp">充值 <b>↗</b></button></div></div>
             </article>
-          </div>
-          <article class="panel-card empty-state" id="noToolsEmpty" hidden>未检测到 Codex 或 DeepSeek Harness。已隐藏对应内容，也不会读取或请求这些工具的业务数据。</article>
 
-          <div class="section-title" data-tool="deepseek"><div><div class="eyebrow">LOCAL SESSION DATA</div><h2>Token 用量</h2></div><span class="source-pill" id="tokenSource">本机记录</span></div>
-          <div class="token-grid" data-tool="deepseek">
-            <div class="token-card"><span>输入</span><strong id="tokenInput">—</strong></div>
-            <div class="token-card"><span>缓存输入</span><strong id="tokenCache">—</strong></div>
-            <div class="token-card"><span>输出</span><strong id="tokenOutput">—</strong></div>
-            <div class="token-card highlight-token"><span>合计</span><strong id="tokenTotal">—</strong></div>
+            <article class="model-row kimi-model" data-tool="kimi">
+              <div class="model-heading"><div class="model-provider"><img class="model-logo" src="kimi-icon.png" alt=""><div><strong>Kimi</strong><small id="kimiAccount">读取本机会员额度</small></div></div><div class="model-header-actions"><span class="source-pill" id="kimiStatus">读取中</span><button class="small-button" id="kimiConnect">打开 Kimi</button></div></div>
+              <div class="model-content">
+                <section class="model-usage"><div class="model-section-heading"><strong>剩余用量</strong><span>会员月额度</span></div>
+                  <div class="model-monthly"><div><span>月度额度剩余</span><strong id="kimiMonthly">—</strong></div><div class="progress kimi-progress"><i id="kimiMonthlyBar"></i></div><small id="kimiMonthlyReset">等待会员额度</small></div>
+                </section>
+                <section class="model-token-panel"><div class="model-section-heading"><strong id="kimiTokenTitle">会员额度消耗</strong><span class="model-token-source" id="kimiTokenSource">读取中</span></div>
+                  <div class="model-token-grid" id="kimiTokenGrid"></div>
+                  <p class="model-token-note" id="kimiTokenNote">读取 Kimi 会员月额度统计</p>
+                </section>
+              </div>
+            </article>
           </div>
-          <div class="session-summary" data-tool="deepseek"><div><span class="tiny-dot"></span><span id="sessionCount">等待本机会话统计</span></div><span>Token 统计来自本机 DeepSeek Harness 会话投影，不发送到网络</span></div>
+          <article class="panel-card empty-state" id="noToolsEmpty" hidden>未检测到受支持的 AI 工具。已隐藏对应页面，也不会读取或请求这些工具的业务数据。</article>
 
-          <div class="lower-grid" id="lowerGrid">
-            <article class="panel-card" data-tool="codex"><div class="panel-heading"><div><div class="eyebrow">USAGE WINDOWS</div><h2>Codex 用量窗口</h2></div><span class="panel-icon">◉</span></div>
-              <div class="mini-window"><div><span>5 小时剩余</span><strong id="miniPrimary">—</strong></div><div class="progress"><i id="miniPrimaryBar"></i></div></div>
-              <div class="mini-window"><div><span>每周剩余</span><strong id="miniWeekly">—</strong></div><div class="progress"><i id="miniWeeklyBar"></i></div></div>
-              <div class="panel-note" id="codexNote">用量来自当前 Codex 登录态；接口故障时使用最近的本机会话快照。</div>
-            </article>
-            <article class="panel-card" data-tool="deepseek"><div class="panel-heading"><div><div class="eyebrow">OFFICIAL BILLING</div><h2>DeepSeek 官方金额</h2></div><span class="panel-icon green">¥</span></div>
-              <div class="billing-line"><span>账户余额</span><strong id="miniBalance">—</strong></div>
-              <div class="billing-line"><span>累计消费</span><strong id="miniSpend">—</strong></div>
-              <div class="panel-note">金额直接来自 DeepSeek 开放平台账户摘要；不会用本机 Token 估算替代。</div>
-            </article>
-          </div>
         </section>
 
-        <section class="page" data-page="codex" data-tool="codex">
-          <div class="page-heading"><div><div class="eyebrow">CODEX ACCOUNT</div><h1>Codex 用量</h1><p>ChatGPT 账户当前 5 小时与每周窗口的剩余比例</p></div><span class="source-pill" id="codexDetailSource">等待数据</span></div>
-          <div class="window-grid">
-            <article class="large-window"><div class="window-top"><span>5 小时剩余</span><span class="window-badge">滚动窗口</span></div><strong id="detailPrimary">—</strong><div class="progress large-progress"><i id="detailPrimaryBar"></i></div><p id="detailPrimaryReset">等待用量数据</p></article>
-            <article class="large-window"><div class="window-top"><span>每周剩余</span><span class="window-badge">滚动窗口</span></div><strong id="detailWeekly">—</strong><div class="progress large-progress"><i id="detailWeeklyBar"></i></div><p id="detailWeeklyReset">等待用量数据</p></article>
+        <section class="page" data-page="model">
+          <div class="page-heading unified-page-heading">
+            <div>
+              <div class="eyebrow" id="modelPageEyebrow">CHATGPT ACCOUNT</div>
+              <h1 class="provider-page-title"><img class="page-provider-icon" id="modelPageIcon" src="chatgpt-icon.png" alt=""><span id="modelPageTitle">ChatGPT 用量</span></h1>
+              <p id="modelPageDescription">当前可用用量、Token 明细与本机对话会话</p>
+            </div>
+            <div class="model-header-actions">
+              <span class="source-pill" id="modelPageSource">读取中</span>
+              <button class="small-button primary-button" id="modelOpenApp">打开 ChatGPT</button>
+            </div>
           </div>
-          <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">DATA SOURCE</div><h2>数据说明</h2></div><span class="panel-icon">i</span></div><p id="codexDetailNote">Host 端使用本机 Codex 登录凭据请求 ChatGPT 用量接口。接口不可用时，会读取最近的本地会话记录。</p><p id="codexError" class="muted"></p></article>
-        </section>
 
-        <section class="page" data-page="deepseek" data-tool="deepseek">
-          <div class="page-heading"><div><div class="eyebrow">DEEPSEEK ACCOUNT</div><h1>DeepSeek 用量</h1><p>独立浏览器授权，官方账户金额与本机 Token 记录分别展示</p></div><div class="account-actions"><button class="small-button primary-button" id="deepSeekLoginDetail">官方登录</button><button class="small-button" id="deepSeekLogoutDetail" hidden>退出登录</button></div></div>
-          <div class="account-grid">
-            <article class="account-card deepseek-card large-account-card"><div class="card-heading"><div class="service-title"><span class="service-icon deepseek-icon">D</span><div><strong>账户余额</strong><small>DeepSeek 开放平台</small></div></div><span class="official-mark">官方数据</span></div><div class="large-money" id="detailBalance">—</div><p class="reset">账户剩余余额</p></article>
-            <article class="account-card deepseek-card large-account-card"><div class="card-heading"><div class="service-title"><span class="service-icon deepseek-icon">¥</span><div><strong>累计消费金额</strong><small>DeepSeek 开放平台账户摘要</small></div></div><span class="official-mark">官方数据</span></div><div class="large-money" id="detailSpend">—</div><p class="reset">平台账单可能存在延迟</p></article>
+          <div class="panel-card model-hud-preferences">
+            <div class="model-hud-preferences-heading">
+              <strong>HUD 显示</strong>
+              <span>控制当前模型是否出现在对应 HUD 中</span>
+            </div>
+            <div class="model-hud-toggles">
+              <label class="hud-control model-hud-toggle" title="控制当前模型是否显示在悬浮窗中">
+                <span>悬浮窗 HUD</span><input id="modelGlobalHUDToggle" type="checkbox" checked>
+                <span class="switch"></span>
+              </label>
+              <label class="hud-control model-hud-toggle" title="控制当前模型是否显示在菜单栏 HUD 中">
+                <span>菜单栏 HUD</span><input id="modelMenuBarHUDToggle" type="checkbox" checked>
+                <span class="switch"></span>
+              </label>
+            </div>
           </div>
-          <div class="section-title" data-tool="deepseek"><div><div class="eyebrow">LOCAL TOKEN RECORDS</div><h2>本机 Token 统计</h2></div><span class="source-pill" id="deepSeekTokenSource">本机记录</span></div>
-          <div class="token-grid" data-tool="deepseek">
-            <div class="token-card"><span>输入</span><strong id="deepTokenInput">—</strong></div><div class="token-card"><span>缓存输入</span><strong id="deepTokenCache">—</strong></div><div class="token-card"><span>输出</span><strong id="deepTokenOutput">—</strong></div><div class="token-card highlight-token"><span>合计</span><strong id="deepTokenTotal">—</strong></div>
+
+          <div class="unified-model-grid">
+            <article class="panel-card unified-model-panel">
+              <div class="panel-heading"><div><div class="eyebrow">AVAILABLE USAGE</div><h2>当前可用用量</h2></div><span class="panel-icon" id="modelUsageIcon">◷</span></div>
+              <div class="unified-usage-grid" id="modelUsageMetrics" aria-live="polite"></div>
+              <p class="panel-note" id="modelUsageFoot"></p>
+            </article>
+            <article class="panel-card unified-model-panel">
+              <div class="panel-heading"><div><div class="eyebrow" id="modelTokenEyebrow">TOKEN DETAILS</div><h2 id="modelTokenTitle">Token 详情</h2></div><span class="model-token-source" id="modelTokenSource">本机记录</span></div>
+              <div class="unified-token-grid" id="modelTokenGrid" aria-live="polite"></div>
+              <p class="panel-note" id="modelTokenFoot"></p>
+            </article>
           </div>
-          <div class="session-summary" data-tool="deepseek"><div><span class="tiny-dot"></span><span id="deepSessionCount">等待本机会话统计</span></div><span>账户官方金额与本机 Token 统计互相独立</span></div>
-          <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">ACCOUNT ACTIONS</div><h2>开放平台</h2></div><span class="panel-icon green">↗</span></div><p>官方金额直接读取平台账户摘要。若平台页面调整接口，应用会显示不可用状态，不会将本地估算冒充官方账单。</p><div class="inline-actions"><button class="small-button" id="openDeepSeekUsageDetail">打开官方用量页</button><button class="small-button" id="openDeepSeekTopUpDetail">前往充值</button></div></article>
+
+          <section class="panel-card unified-sessions-panel" aria-labelledby="modelSessionsTitle">
+            <div class="unified-sessions-heading">
+              <div><div class="eyebrow">CONVERSATION SESSIONS</div><h2 id="modelSessionsTitle">对话 Session</h2><p id="modelSessionsDescription">按最近活动时间排列 · 点击一条查看发送内容和模型回复</p></div>
+              <span class="source-pill" id="modelSessionCount">读取中</span>
+            </div>
+            <div class="unified-session-list">
+              <div class="unified-session-labels" aria-hidden="true"><span>会话</span><span>最近活动</span><span>输入</span><span>缓存输入</span><span>输出</span><span>合计</span><span></span></div>
+              <div id="modelSessionRows" aria-live="polite"></div>
+            </div>
+          </section>
         </section>
 
         <section class="page" data-page="settings">
-          <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p>管理全局 HUD 与本机数据来源</p></div></div>
-          <article class="panel-card setting-card" id="settingCard"><div class="setting-row" id="hudSettingsRow"><div><strong>全局置顶 HUD</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><div class="hud-setting-control"><span id="hudVisibilitySettings" class="setting-value" aria-live="polite"></span><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div></div>
-            <div class="setting-row" data-tool="codex"><div><strong>Codex 剩余用量报警</strong><p>5 小时或每周窗口的剩余比例低于或等于阈值时，对应数字和进度条会变为橙色；主界面和 HUD 同步显示。</p></div><label class="threshold-control"><input id="usageAlertThreshold" type="number" min="0" max="100" step="1" value="20" aria-label="Codex 剩余用量报警阈值"><span>%</span></label></div>
-            <div class="setting-row" data-tool="deepseek"><div><strong>DeepSeek 余额报警</strong><p>所选币种的账户余额低于或等于阈值时，余额显示变为橙色；HUD 会显示所选币种余额。</p></div><div class="threshold-control"><select id="deepSeekBalanceAlertCurrency" aria-label="DeepSeek 报警币种"><option value="CNY">人民币 ¥</option><option value="USD">美元 $</option></select><input id="deepSeekBalanceAlertThreshold" type="number" min="0" step="0.01" value="10" aria-label="DeepSeek 余额报警阈值"></div></div>
-            <div class="setting-row" id="autoRefreshSetting"><div><strong>自动刷新</strong><p>每 30 秒更新本机已检测到的工具数据。</p></div><span class="setting-value">已开启</span></div>
-            <div class="setting-row" data-tool="deepseek"><div><strong>DeepSeek 登录</strong><p>通过 DeepSeek 官方浏览器授权，令牌只保存在 macOS 钥匙串。</p></div><button class="small-button primary-button" id="deepSeekLoginSettings">官方登录</button></div>
+          <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p>管理悬浮窗与本机数据来源</p></div></div>
+          <article class="panel-card setting-card" id="settingCard"><div class="setting-row" id="hudSettingsRow"><div><strong>悬浮窗</strong><p>在其他应用窗口上方显示，可拖动、展开和收起。展开时沿用胶囊的左上角位置。</p></div><div class="hud-setting-control"><span id="hudVisibilitySettings" class="setting-value" aria-live="polite"></span><label class="hud-control"><input id="hudToggleSettings" type="checkbox"><span class="switch"></span></label></div></div>
+            <div class="setting-row" id="hudDisplayRow"><div><strong>悬浮窗所在显示器</strong><p>可切换到任一已连接的显示器；在屏幕上拖动悬浮窗可放到任意位置。</p></div><div class="display-control"><select id="hudDisplay" aria-label="悬浮窗所在显示器"></select></div></div>
+            <div class="setting-row" data-tool="codex"><div><strong class="provider-setting-title"><img src="chatgpt-icon.png" alt="">ChatGPT 剩余用量报警</strong><p>5 小时或每周窗口的剩余比例低于或等于阈值时，对应数字和进度条会变为橙色；主界面和 HUD 同步显示。</p></div><label class="threshold-control"><input id="usageAlertThreshold" type="number" min="0" max="100" step="1" value="20" aria-label="ChatGPT 剩余用量报警阈值"><span>%</span></label></div>
+            <div class="setting-row" data-tool="deepseek"><div><strong class="provider-setting-title"><img src="deepseek-icon.png" alt="">DeepSeek 余额报警</strong><p>所选币种的账户余额低于或等于阈值时，余额显示变为橙色；HUD 会显示所选币种余额。</p></div><div class="threshold-control"><select id="deepSeekBalanceAlertCurrency" aria-label="DeepSeek 报警币种"><option value="CNY">人民币 ¥</option><option value="USD">美元 $</option></select><input id="deepSeekBalanceAlertThreshold" type="number" min="0" step="0.01" value="10" aria-label="DeepSeek 余额报警阈值"></div></div>
+            <div class="setting-row" data-tool="kimi"><div><strong class="provider-setting-title"><img src="kimi-icon.png" alt="">Kimi 月额度报警</strong><p>会员月额度剩余比例低于或等于阈值时，主界面数字与进度条、HUD 月额度数字变为橙色。</p></div><label class="threshold-control"><input id="kimiMonthlyAlertThreshold" type="number" min="0" max="100" step="1" value="20" aria-label="Kimi 月额度报警阈值"><span>%</span></label></div>
+            <div class="setting-row" id="autoRefreshSetting"><div><strong>自动刷新</strong><p>开启后每 30 秒更新本机已检测到的工具数据；关闭后可通过顶部刷新按钮手动更新。</p></div><div class="hud-setting-control"><span id="autoRefreshStatus" class="setting-value" aria-live="polite">已开启</span><label class="hud-control" aria-label="自动刷新"><input id="autoRefreshToggle" type="checkbox" checked><span class="switch"></span></label></div></div>
           </article>
-          <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">PRIVACY</div><h2>本机隐私</h2></div><span class="panel-icon">⌑</span></div><ul class="privacy-list"><li>Codex 登录令牌只用于向 chatgpt.com 请求当前用量。</li><li>DeepSeek 登录令牌保存在 macOS 钥匙串，只发送到 platform.deepseek.com。</li><li>本机 Token 统计仅读取会话投影中的 Token 计数，不上传会话内容。</li><li>HUD 位置、展开状态、开关状态和用量报警阈值保存在本机偏好设置中。</li></ul></article>
+          <article class="panel-card support-card feedback-card" aria-labelledby="feedbackTitle">
+            <div class="panel-heading"><div><div class="eyebrow">FEEDBACK</div><h2 id="feedbackTitle">反馈</h2></div><span class="panel-icon">↗</span></div>
+            <div class="feedback-content">
+              <div class="qr-surface feedback-qr"><img src="feedback-qr.png" alt="腾讯频道反馈二维码"></div>
+              <div class="support-copy"><strong>腾讯频道</strong><p>遇到额度显示异常、功能故障，或希望支持新的模型？欢迎扫码加入腾讯频道告诉我。你的反馈能帮我更快定位问题、安排后续更新；我会认真看每条建议，也会尽量同步处理进度。</p><p>使用QQ扫码</p><span>频道号：pd93266932</span></div>
+            </div>
+          </article>
+          <article class="panel-card support-card sponsorship-card" aria-labelledby="sponsorshipTitle">
+            <div class="panel-heading"><div><div class="eyebrow">SPONSOR</div><h2 id="sponsorshipTitle">赞助</h2></div><span class="panel-icon green">♥</span></div>
+            <p class="support-intro">如果这个工具帮你省下了查用量的时间，欢迎请我喝杯咖啡。应用由我独立开发维护，赞助会用于后续适配、问题修复和功能改进。每一份支持都是继续做下去的动力；赞助完全自愿，也不会影响任何功能。</p>
+            <div class="sponsor-options">
+              <div class="sponsor-option"><div class="qr-surface"><img src="sponsor-wechat-qr.png" alt="微信支付赞助二维码"></div><div class="support-copy"><strong>微信支付</strong><span>使用微信扫码赞助</span></div></div>
+              <div class="sponsor-option"><div class="qr-surface"><img src="sponsor-alipay-qr.png" alt="支付宝赞助二维码"></div><div class="support-copy"><strong>支付宝</strong><span>使用支付宝扫码赞助</span></div></div>
+            </div>
+          </article>
+          <article class="panel-card detail-note"><div class="panel-heading"><div><div class="eyebrow">PRIVACY</div><h2>本机隐私</h2></div><span class="panel-icon">⌑</span></div><ul class="privacy-list"><li>ChatGPT 本机访问令牌只用于向 chatgpt.com 请求当前用量。</li><li>DeepSeek 复用本机 Harness 配置中的访问凭据，只发送到 platform.deepseek.com。</li><li>Kimi 会员凭据直接从 Kimi 桌面端读取，只发送到 Kimi 接口；用量监控不另存令牌。</li><li>Token 统计与对话详情从本机会话文件读取；详情仅在本机显示，不上传会话内容。Kimi 当前接口不提供对话历史。</li><li>悬浮窗所在显示器、位置、展开状态、开关状态和用量报警阈值保存在本机偏好设置中。</li></ul></article>
         </section>
       </div>
+
+    <div class="session-detail-backdrop" id="modelDetailOverlay" hidden>
+      <section class="session-detail-modal" role="dialog" aria-modal="true" aria-labelledby="modelDetailTitle">
+        <header class="session-detail-header">
+          <div><div class="eyebrow">SESSION DETAIL</div><h2 id="modelDetailTitle">会话详情</h2><p id="modelDetailSubtitle"></p></div>
+          <button type="button" class="small-button" id="modelDetailClose">关闭</button>
+        </header>
+        <div class="session-detail-body">
+          <div class="session-detail-meta" id="modelDetailMeta"></div>
+          <div class="session-detail-section-heading"><h3>对话内容</h3><span id="modelDetailMessageCount"></span></div>
+          <p class="session-detail-status" id="modelDetailStatus" aria-live="polite"></p>
+          <div class="session-detail-messages" id="modelDetailMessages" aria-live="polite"></div>
+          <div class="session-detail-section-heading"><h3>此会话 Token 明细</h3></div>
+          <div class="session-detail-token-grid" id="modelDetailTokens"></div>
+        </div>
+      </section>
+    </div>
     </main>
   </div>
   <script src="app.js"></script>
