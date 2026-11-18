@@ -97,7 +97,7 @@ rm -f "$RW_DMG" "$DMG_PATH" "$CHECKSUM_PATH" "$NOTES_PATH"
 mkdir -p "$MOUNT_POINT"
 
 hdiutil create -quiet -volname "$VOL_NAME" -srcfolder "$STAGE_DIR" -fs HFS+ -format UDRW "$RW_DMG"
-hdiutil attach -quiet -readwrite -noverify -nobrowse -mountpoint "$MOUNT_POINT" "$RW_DMG"
+hdiutil attach -quiet -readwrite -noverify -mountpoint "$MOUNT_POINT" "$RW_DMG"
 MOUNTED=1
 
 osascript - "$MOUNT_POINT" "$VOL_NAME" <<'APPLESCRIPT'
