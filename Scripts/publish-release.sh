@@ -120,7 +120,7 @@ on run argv
     set position of item "用量监控.app" of installerDisk to {270, 320}
     set position of item "Applications" of installerDisk to {630, 320}
     delay 1
-    close installerWindow saving yes
+    close installerWindow
   end tell
 end run
 APPLESCRIPT
