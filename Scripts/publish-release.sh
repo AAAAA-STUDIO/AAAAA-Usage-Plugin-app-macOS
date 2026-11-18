@@ -92,12 +92,12 @@ RW_DMG="$BUILD_DIR/.UsageMonitor-$VERSION-rw.dmg"
 DMG_PATH="$BUILD_DIR/UsageMonitor-$VERSION-macOS.dmg"
 CHECKSUM_PATH="$BUILD_DIR/UsageMonitor-$VERSION-macOS.dmg.sha256"
 NOTES_PATH="$BUILD_DIR/.release-notes-$VERSION.md"
-MOUNT_POINT="$BUILD_DIR/.mount-$VERSION"
+MOUNT_POINT="/Volumes/$VOL_NAME"
+[[ ! -e "$MOUNT_POINT" ]] || fail "A volume is already mounted at $MOUNT_POINT. Eject it before publishing."
 rm -f "$RW_DMG" "$DMG_PATH" "$CHECKSUM_PATH" "$NOTES_PATH"
-mkdir -p "$MOUNT_POINT"
 
 hdiutil create -quiet -volname "$VOL_NAME" -srcfolder "$STAGE_DIR" -fs HFS+ -format UDRW "$RW_DMG"
-hdiutil attach -quiet -readwrite -noverify -mountpoint "$MOUNT_POINT" "$RW_DMG"
+hdiutil attach -quiet -readwrite -noverify "$RW_DMG"
 MOUNTED=1
 
 osascript - "$MOUNT_POINT" "$VOL_NAME" <<'APPLESCRIPT'
@@ -127,7 +127,6 @@ APPLESCRIPT
 
 hdiutil detach "$MOUNT_POINT" -quiet
 MOUNTED=0
-rmdir "$MOUNT_POINT"
 hdiutil convert "$RW_DMG" -quiet -format UDZO -o "$DMG_PATH"
 hdiutil verify "$DMG_PATH" -quiet
 rm -f "$RW_DMG"
