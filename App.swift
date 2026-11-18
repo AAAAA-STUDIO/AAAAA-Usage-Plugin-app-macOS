@@ -56,6 +56,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     private var kimiQueryInFlight = false
     private var kimiQueryTask: Task<Void, Never>?
     private var kimiQueryGeneration = 0
+    private var kimiSessionStoreMonitorTimer: Timer?
+    private var kimiSessionStoreSignature: String?
+    private var kimiSessionStoreRefreshTask: Task<Void, Never>?
+    private var kimiSessionStoreRefreshPending = false
+    private var lastKimiSessionStoreRefreshAt: Date?
     private let usageAlertThresholdKey = "usage.alertThresholdPercent"
     private let defaultUsageAlertThresholdPercent = 20
     private let kimiMonthlyAlertThresholdKey = "usage.kimiMonthlyAlertThresholdPercent"
@@ -172,6 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let page = Bundle.main.resourceURL!.appendingPathComponent("Resources/index.html")
         webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
         observeKimiAppLifecycle()
+        updateKimiSessionStoreMonitor()
 
         if availableTools.hasAny {
             updateAutoRefreshTimer()
@@ -192,6 +198,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     func applicationWillTerminate(_ notification: Notification) {
         refreshTimer?.invalidate()
+        kimiSessionStoreMonitorTimer?.invalidate()
+        kimiSessionStoreRefreshTask?.cancel()
         kimiRefreshAfterOpenTask?.cancel()
         let center = NSWorkspace.shared.notificationCenter
         kimiAppObservers.forEach { center.removeObserver($0) }
@@ -468,6 +476,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         pushToolSettings()
         pushHUDState()
         updateAutoRefreshTimer()
+        updateKimiSessionStoreMonitor()
         if refreshIfNeeded && availableTools.hasAny { refresh() }
     }
 
@@ -515,15 +524,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                 self.kimiQueryTask = nil
                 return
             }
+            let receivedMonthlyQuota = self.hasKimiMonthlyQuota(usage)
             usage["sessions"] = []
             usage["sessionsReason"] = "当前 Kimi 桌面会员接口不提供对话历史"
+            usage = self.preservingLastKnownKimiQuotas(from: self.latestKimiUsage, in: usage)
             self.latestKimiUsage = usage
-            if self.hasKimiMonthlyQuota(usage) {
+            if receivedMonthlyQuota {
                 self.kimiLastMonthlyReadAt = Date()
             }
             self.kimiQueryInFlight = false
             self.kimiQueryTask = nil
             self.updateSnapshotWithKimiUsage()
+            if self.kimiSessionStoreRefreshPending {
+                self.kimiSessionStoreRefreshPending = false
+                self.queueKimiSessionStoreRefresh()
+            }
         }
     }
 
@@ -583,10 +598,120 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         }
     }
 
+    private func updateKimiSessionStoreMonitor() {
+        guard availableTools.kimi else {
+            kimiSessionStoreMonitorTimer?.invalidate()
+            kimiSessionStoreMonitorTimer = nil
+            kimiSessionStoreRefreshTask?.cancel()
+            kimiSessionStoreRefreshTask = nil
+            kimiSessionStoreSignature = nil
+            kimiSessionStoreRefreshPending = false
+            lastKimiSessionStoreRefreshAt = nil
+            return
+        }
+        guard kimiSessionStoreMonitorTimer == nil else { return }
+
+        kimiSessionStoreSignature = kimiClient.localSessionStoreChangeSignature()
+        kimiSessionStoreMonitorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkKimiSessionStoreForRefresh() }
+        }
+    }
+
+    private func checkKimiSessionStoreForRefresh() {
+        guard availableTools.kimi else { return }
+        let signature = kimiClient.localSessionStoreChangeSignature()
+        guard signature != kimiSessionStoreSignature else { return }
+        kimiSessionStoreSignature = signature
+        guard hasKimiUnauthorizedSessionError(latestKimiUsage) else { return }
+
+        if kimiQueryInFlight {
+            kimiSessionStoreRefreshPending = true
+            return
+        }
+        if let lastRefresh = lastKimiSessionStoreRefreshAt,
+           Date().timeIntervalSince(lastRefresh) < 15 {
+            return
+        }
+        lastKimiSessionStoreRefreshAt = Date()
+        queueKimiSessionStoreRefresh()
+    }
+
+    private func queueKimiSessionStoreRefresh() {
+        guard availableTools.kimi,
+              hasKimiUnauthorizedSessionError(latestKimiUsage),
+              kimiSessionStoreRefreshTask == nil else { return }
+        kimiSessionStoreRefreshTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            } catch {
+                return
+            }
+            guard let self else { return }
+            self.kimiSessionStoreRefreshTask = nil
+            guard !Task.isCancelled, self.availableTools.kimi,
+                  self.hasKimiUnauthorizedSessionError(self.latestKimiUsage) else { return }
+            if self.kimiQueryInFlight {
+                self.kimiSessionStoreRefreshPending = true
+                return
+            }
+            self.kimiSessionStoreRefreshPending = false
+            self.lastKimiSessionStoreRefreshAt = Date()
+            self.requestKimiQuota()
+        }
+    }
+
+    private func hasKimiUnauthorizedSessionError(_ usage: [String: Any]) -> Bool {
+        let detail = [usage["error"], usage["membershipUnavailable"]]
+            .compactMap { $0 as? String }
+            .joined(separator: " ")
+        return detail.contains("HTTP 401") || detail.contains("HTTP 403")
+    }
+
     private func hasKimiMonthlyQuota(_ usage: [String: Any]) -> Bool {
-        guard let monthly = usage["monthly"] as? [String: Any],
-              let usedPercent = monthly["usedPercent"] as? NSNumber else { return false }
+        hasKimiQuotaWindow(usage["monthly"])
+    }
+
+    private func hasKimiQuotaWindow(_ value: Any?) -> Bool {
+        guard let window = value as? [String: Any],
+              let usedPercent = window["usedPercent"] as? NSNumber else { return false }
         return usedPercent.doubleValue.isFinite && (0...100).contains(usedPercent.doubleValue)
+    }
+
+    private func preservingLastKnownKimiQuotas(
+        from previous: [String: Any],
+        in current: [String: Any]
+    ) -> [String: Any] {
+        var merged = current
+        var retainedFields: [String] = []
+        let quotaFields = ["monthly", "fiveHour", "codeFiveHour", "codeWeekly"]
+
+        for field in quotaFields where !hasKimiQuotaWindow(merged[field]) {
+            guard hasKimiQuotaWindow(previous[field]) else { continue }
+            merged[field] = previous[field]
+            retainedFields.append(field)
+        }
+
+        guard !retainedFields.isEmpty else {
+            merged.removeValue(forKey: "staleQuotaFields")
+            return merged
+        }
+
+        merged["available"] = (current["available"] as? Bool == true)
+            || (previous["available"] as? Bool == true)
+        merged["sessionDetected"] = (current["sessionDetected"] as? Bool == true)
+            || (previous["sessionDetected"] as? Bool == true)
+        merged["staleQuotaFields"] = retainedFields
+
+        let failure = current["error"] as? String ?? ""
+        let membershipFailure = current["membershipUnavailable"] as? String ?? ""
+        if !failure.isEmpty {
+            merged["error"] = "刷新暂时失败，显示上次成功读取的额度。\(failure)"
+        } else if retainedFields.contains("monthly"), !membershipFailure.isEmpty {
+            merged["error"] = "Kimi 会员额度暂不可用，显示上次成功读取的数据。\(membershipFailure)"
+        } else {
+            merged["error"] = "部分额度暂未返回，显示上次成功读取的数据。"
+        }
+        return merged
     }
 
     private func openDesktopApplication(

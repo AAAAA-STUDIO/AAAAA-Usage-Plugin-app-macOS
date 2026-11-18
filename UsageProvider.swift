@@ -164,6 +164,26 @@ private enum KimiDesktopSessionStore {
         let value: [UInt8]
     }
 
+    static func changeSignature() -> String {
+        let directory = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/kimi-desktop/Local Storage/leveldb")
+        let keys: Set<URLResourceKey> = [.fileSizeKey, .contentModificationDateKey]
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: Array(keys)
+        ) else { return "missing" }
+
+        return files
+            .filter { ["ldb", "log"].contains($0.pathExtension) }
+            .map { file in
+                let values = try? file.resourceValues(forKeys: keys)
+                let size = values?.fileSize ?? -1
+                let modified = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
+                return "\(file.lastPathComponent):\(size):\(String(format: "%.3f", modified))"
+            }
+            .sorted()
+            .joined(separator: "|")
+    }
+
     static func credentials() -> [Credentials] {
         let directory = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Application Support/kimi-desktop/Local Storage/leveldb")
@@ -491,6 +511,11 @@ final class KimiAccountClient {
         delegate: NoRedirectDelegate(),
         delegateQueue: nil
     )
+
+    func localSessionStoreChangeSignature() -> String {
+        KimiDesktopSessionStore.changeSignature()
+    }
+
     func fetchUsage() async -> [String: Any] {
         let credentials = KimiDesktopSessionStore.credentials()
         guard !credentials.isEmpty else {
