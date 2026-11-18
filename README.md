@@ -31,7 +31,7 @@ open AAAAAUsage.xcodeproj
 
 在 Xcode 中选择 `用量监控` scheme 后即可运行或构建。也可以执行 `./build-app.sh`，由 `xcodebuild` 构建并将应用放到 `build/用量监控.app`。本地构建使用 ad hoc 签名；公开分发前，需要用开发者证书签名并完成 Apple 公证。
 
-安装 Release 版本时，从 GitHub Releases 下载 `.dmg`，打开后将“用量监控”拖入“应用程序”文件夹。本次安装包使用本机 ad hoc 签名，尚未进行 Apple 公证；macOS 可能提示无法验证开发者。正式公开分发需要开发者证书签名并完成公证。
+安装 Release 版本时，从 [GitHub Releases 下载用量监控 0.1.2 DMG](https://github.com/AAAAA-STUDIO/AAAAA-Usage-Plugin-app-macOS/releases/download/v0.1.2/UsageMonitor-0.1.2-macOS.dmg)，打开后将“用量监控”拖入“应用程序”文件夹。本次安装包使用本机 ad hoc 签名，尚未进行 Apple 公证；macOS 可能提示无法验证开发者。正式公开分发需要开发者证书签名并完成公证。
 
 ## 反馈与赞助
 
