@@ -997,10 +997,9 @@ private final class MenuBarUsageController: NSObject {
         let codexPrimary = codex["primary"] as? [String: Any] ?? [:]
         let kimiMonthly = kimi["monthly"] as? [String: Any] ?? [:]
         let balances = deepSeek["balances"] as? [[String: Any]] ?? []
-        let appearance = NSApp.effectiveAppearance
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let primaryTextColor = isDark ? NSColor.white : NSColor(calibratedWhite: 0.12, alpha: 1)
-        let accentTextColor = isDark ? NSColor.systemOrange : Self.darkOrange
+        // The menu-bar HUD is intentionally a light glass capsule in both system themes.
+        let primaryTextColor = NSColor(calibratedWhite: 0.12, alpha: 1)
+        let accentTextColor = Self.darkOrange
 
         let updatedTitle = NSMutableAttributedString(string: "  ", attributes: [
             .font: NSFont.systemFont(ofSize: 12)
@@ -1252,6 +1251,7 @@ private final class MenuBarHUDStatusView: NSView {
         wantsLayer = true
         layer?.masksToBounds = true
 
+        materialView.appearance = NSAppearance(named: .aqua)
         materialView.material = .menu
         materialView.blendingMode = .behindWindow
         materialView.state = .active
@@ -1260,7 +1260,7 @@ private final class MenuBarHUDStatusView: NSView {
         addSubview(materialView)
 
         tintView.wantsLayer = true
-        tintView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.14).cgColor
+        tintView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.32).cgColor
         tintView.layer?.masksToBounds = true
         addSubview(tintView)
 
@@ -1312,7 +1312,7 @@ private final class MenuBarHUDStatusView: NSView {
         layer?.cornerRadius = radius
         layer?.cornerCurve = .continuous
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.34).cgColor
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.72).cgColor
 
         let insetRect = bounds.insetBy(dx: 1, dy: 1)
         materialView.frame = insetRect

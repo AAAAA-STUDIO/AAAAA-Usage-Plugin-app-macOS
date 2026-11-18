@@ -47,7 +47,7 @@ open AAAAAUsage.xcodeproj
 
 脚本要求 macOS、Xcode、GitHub CLI（已登录）和可推送的 Git 凭据。它会构建应用、制作并校验 DMG、生成 SHA-256 文件，将 `main` 和版本标签推送到 `origin`，再创建 GitHub Release 并上传 DMG 与校验文件。脚本只从已提交的仓库状态发布，不会自动提交其他本地文件；未跟踪文件会被忽略，每个版本标签只能发布一次。
 
-安装 Release 版本时，从 [GitHub Releases 下载用量监控 0.1.2 DMG](https://github.com/AAAAA-STUDIO/AAAAA-Usage-Plugin-app-macOS/releases/download/v0.1.2/UsageMonitor-0.1.2-macOS.dmg)，打开后将“用量监控”拖入“应用程序”文件夹。本次安装包使用本机 ad hoc 签名，尚未进行 Apple 公证；macOS 可能提示无法验证开发者。正式公开分发需要开发者证书签名并完成公证。
+安装 Release 版本时，从 [GitHub Releases 下载用量监控 0.1.3 DMG](https://github.com/AAAAA-STUDIO/AAAAA-Usage-Plugin-app-macOS/releases/download/v0.1.3/UsageMonitor-0.1.3-macOS.dmg)，打开后将“用量监控”拖入“应用程序”文件夹。本次安装包使用本机 ad hoc 签名，尚未进行 Apple 公证；macOS 可能提示无法验证开发者。正式公开分发需要开发者证书签名并完成公证。
 
 ## 反馈与赞助
 
